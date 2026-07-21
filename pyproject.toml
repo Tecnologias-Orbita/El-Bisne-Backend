@@ -1,0 +1,32 @@
+[project]
+name = "el-bisne-backend"
+version = "0.1.0"
+description = "Backend de El Bisne construido con FastAPI."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.16.0",
+    "asyncpg>=0.30.0",
+    "fastapi[standard]>=0.115.0",
+    "pydantic-settings>=2.9.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.0",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.26.0",
+    "ruff>=0.11.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
