@@ -40,6 +40,10 @@ Route → Command/Query Bus → Handler → Service → Repository → PostgreSQ
 Consulta [BACKEND_PLAN.md](BACKEND_PLAN.md) para el diseño de módulos, reglas
 de dependencia, modelo de datos y evolución prevista.
 
+La referencia detallada de endpoints, requests, responses, permisos, entidades,
+columnas y relaciones está en
+[BACKEND_TECHNICAL_DOCUMENTATION.md](BACKEND_TECHNICAL_DOCUMENTATION.md).
+
 ## API inicial
 
 La documentación completa se genera en `/docs`. Los principales contratos son:
