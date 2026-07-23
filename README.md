@@ -30,6 +30,42 @@ Dockerfile           # Imagen de la API
 pyproject.toml       # Proyecto y dependencias de uv
 ```
 
+La aplicación sigue CQRS lógico y arquitectura modular. Las rutas no contienen
+lógica de negocio ni acceden a SQLAlchemy:
+
+```text
+Route → Command/Query Bus → Handler → Service → Repository → PostgreSQL
+```
+
+Consulta [BACKEND_PLAN.md](BACKEND_PLAN.md) para el diseño de módulos, reglas
+de dependencia, modelo de datos y evolución prevista.
+
+## API inicial
+
+La documentación completa se genera en `/docs`. Los principales contratos son:
+
+- `POST /api/v1/auth/register`, `/login` y `/refresh`.
+- `GET /api/v1/auth/me`.
+- `POST` y `GET /api/v1/businesses`.
+- Administración de catálogo bajo `/api/v1/businesses/{business_id}/catalog`.
+- Administración del sitio bajo `/api/v1/businesses/{business_id}/site`.
+- Administración de formularios bajo `/api/v1/businesses/{business_id}/forms`.
+- Gestión de miembros bajo `/api/v1/businesses/{business_id}/members`.
+- Gestión de pedidos bajo `/api/v1/businesses/{business_id}/orders`.
+- Landing y catálogo público bajo `/api/v1/public/businesses/{slug}`.
+- Pedidos invitados en `/api/v1/public/businesses/{slug}/orders`; requieren la
+  cabecera `Idempotency-Key`.
+
+Los endpoints administrativos usan `Authorization: Bearer <access_token>`.
+Las eliminaciones preservan historial: negocios y productos se archivan, y un
+formulario con respuestas pasa a estado `archived`.
+
+La autorización se valida nuevamente dentro de cada handler. Un usuario debe
+tener el permiso requerido en el negocio o ser administrador global; conocer un
+`business_id` no concede acceso. `editor` administra contenido, `viewer` solo
+lee y consulta estadísticas, y la gestión de pedidos o miembros queda para
+`owner` y `admin`.
+
 ## Inicio rápido con Docker
 
 Requisitos: Docker Engine y Docker Compose v2.
@@ -46,6 +82,7 @@ contener la misma contraseña:
 ```dotenv
 POSTGRES_PASSWORD=una-clave-segura
 DATABASE_URL=postgresql+asyncpg://el_bisne:una-clave-segura@localhost:5432/el_bisne
+SECRET_KEY=una-clave-larga-y-aleatoria-para-firmar-jwt
 ```
 
 Construye y levanta todo:
@@ -146,6 +183,24 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 ```
+
+### Pruebas end-to-end
+
+La suite `tests/e2e` usa PostgreSQL real y nunca debe apuntar a la base de
+desarrollo. Por defecto utiliza la base y usuario aislados `el_bisne_test`.
+Después de crearlos una vez dentro del contenedor PostgreSQL, se ejecuta:
+
+```bash
+uv run pytest tests/e2e -vv
+```
+
+Las fixtures reemplazan las sesiones de la aplicación por sesiones contra
+`el_bisne_test` y recrean únicamente sus tablas antes de cada caso. No limpian
+ni modifican `el_bisne`.
+
+La cobertura E2E incluye autenticación, rotación de tokens, protección RBAC,
+administrador global, negocios, miembros, sitio, secciones, formularios,
+catálogo, pedidos, idempotencia y estadísticas.
 
 Después de cambiar dependencias, confirma tanto `pyproject.toml` como
 `uv.lock`, y reconstruye la imagen:

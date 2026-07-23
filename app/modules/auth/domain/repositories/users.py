@@ -1,0 +1,16 @@
+import uuid
+from typing import Protocol
+
+from app.modules.auth.infrastructure.models.user import RefreshTokenModel, UserModel
+
+
+class UserRepository(Protocol):
+    async def get_by_email(self, email: str) -> UserModel | None: ...
+
+    async def get_by_id(self, user_id: uuid.UUID) -> UserModel | None: ...
+
+    async def add(self, user: UserModel) -> None: ...
+
+    async def add_refresh_token(self, token: RefreshTokenModel) -> None: ...
+
+    async def get_refresh_token(self, token_hash: str) -> RefreshTokenModel | None: ...

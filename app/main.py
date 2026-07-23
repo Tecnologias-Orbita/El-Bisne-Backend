@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.api.router import api_router
 from app.core.config import settings
 from app.db.session import engine
+from app.shared.infrastructure.errors import install_exception_handlers
 
 
 @asynccontextmanager
@@ -15,6 +16,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+install_exception_handlers(app)
 app.include_router(api_router, prefix="/api/v1")
 
 
