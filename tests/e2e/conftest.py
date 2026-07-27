@@ -3,7 +3,7 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import update
+from sqlalchemy import MetaData, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -25,6 +25,10 @@ TEST_DATABASE_URL = (
     )
     .render_as_string(hide_password=False)
 )
+test_database_name = make_url(TEST_DATABASE_URL).database
+if test_database_name is None or not test_database_name.endswith("_test"):
+    raise RuntimeError("E2E tests must use a database whose name ends in '_test'")
+
 test_engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
 test_session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
 
@@ -35,7 +39,12 @@ def run_async(coroutine: object) -> object:
 
 async def reset_database() -> None:
     async with test_engine.begin() as connection:
-        await connection.run_sync(Base.metadata.drop_all)
+        def drop_existing_schema(sync_connection: object) -> None:
+            existing_metadata = MetaData()
+            existing_metadata.reflect(bind=sync_connection)
+            existing_metadata.drop_all(bind=sync_connection)
+
+        await connection.run_sync(drop_existing_schema)
         await connection.run_sync(Base.metadata.create_all)
     await test_engine.dispose()
 

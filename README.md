@@ -44,6 +44,10 @@ La referencia detallada de endpoints, requests, responses, permisos, entidades,
 columnas y relaciones está en
 [BACKEND_TECHNICAL_DOCUMENTATION.md](BACKEND_TECHNICAL_DOCUMENTATION.md).
 
+El contrato específico para implementar el frontend, con bodies, respuestas,
+permisos y ejemplos, está en
+[FRONTEND_API_DOCUMENTATION.md](FRONTEND_API_DOCUMENTATION.md).
+
 ## API inicial
 
 La documentación completa se genera en `/docs`. Los principales contratos son:
@@ -52,17 +56,17 @@ La documentación completa se genera en `/docs`. Los principales contratos son:
 - `GET /api/v1/auth/me`.
 - `POST` y `GET /api/v1/businesses`.
 - Administración de catálogo bajo `/api/v1/businesses/{business_id}/catalog`.
-- Administración del sitio bajo `/api/v1/businesses/{business_id}/site`.
-- Administración de formularios bajo `/api/v1/businesses/{business_id}/forms`.
+- Plantilla pública fija integrada en `GET/PUT /api/v1/businesses/{business_id}`;
+  incluye hero, logo, descripción y contacto sin secciones ni temas editables.
 - Gestión de miembros bajo `/api/v1/businesses/{business_id}/members`.
 - Gestión de pedidos bajo `/api/v1/businesses/{business_id}/orders`.
-- Landing y catálogo público bajo `/api/v1/public/businesses/{slug}`.
+- Información completa y catálogo público bajo
+  `/api/v1/public/businesses/{slug}`.
 - Pedidos invitados en `/api/v1/public/businesses/{slug}/orders`; requieren la
   cabecera `Idempotency-Key`.
 
 Los endpoints administrativos usan `Authorization: Bearer <access_token>`.
-Las eliminaciones preservan historial: negocios y productos se archivan, y un
-formulario con respuestas pasa a estado `archived`.
+Las eliminaciones preservan historial: negocios y productos se archivan.
 
 La autorización se valida nuevamente dentro de cada handler. Un usuario debe
 tener el permiso requerido en el negocio o ser administrador global; conocer un
@@ -203,7 +207,7 @@ Las fixtures reemplazan las sesiones de la aplicación por sesiones contra
 ni modifican `el_bisne`.
 
 La cobertura E2E incluye autenticación, rotación de tokens, protección RBAC,
-administrador global, negocios, miembros, sitio, secciones, formularios,
+administrador global, negocios con presentación pública fija, miembros,
 catálogo, pedidos, idempotencia y estadísticas.
 
 Después de cambiar dependencias, confirma tanto `pyproject.toml` como

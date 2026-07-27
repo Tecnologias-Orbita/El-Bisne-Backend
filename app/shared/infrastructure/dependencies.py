@@ -67,26 +67,6 @@ from app.modules.catalog.application.queries.catalog import (
     ListProducts,
     ListProductsHandler,
 )
-from app.modules.forms.application.commands.forms import (
-    CreateForm,
-    CreateFormHandler,
-    DeleteForm,
-    DeleteFormHandler,
-    SubmitForm,
-    SubmitFormHandler,
-    UpdateForm,
-    UpdateFormHandler,
-    UpdateSubmissionStatus,
-    UpdateSubmissionStatusHandler,
-)
-from app.modules.forms.application.queries.forms import (
-    GetForm,
-    GetFormHandler,
-    ListForms,
-    ListFormsHandler,
-    ListSubmissions,
-    ListSubmissionsHandler,
-)
 from app.modules.orders.application.commands.orders import (
     ChangeOrderStatus,
     ChangeOrderStatusHandler,
@@ -99,23 +79,9 @@ from app.modules.orders.application.queries.orders import (
     ListOrders,
     ListOrdersHandler,
 )
-from app.modules.sites.application.commands.sites import (
-    AddSiteSection,
-    AddSiteSectionHandler,
-    DeleteSiteSection,
-    DeleteSiteSectionHandler,
-    PublishSite,
-    PublishSiteHandler,
-    UpdateSiteSection,
-    UpdateSiteSectionHandler,
-    UpdateSiteSettings,
-    UpdateSiteSettingsHandler,
-)
 from app.modules.sites.application.queries.sites import (
-    GetManagedSite,
-    GetManagedSiteHandler,
-    GetPublicBusinessSite,
-    GetPublicBusinessSiteHandler,
+    GetPublicBusiness,
+    GetPublicBusinessHandler,
 )
 from app.shared.application.cqrs import CommandBus, QueryBus
 from app.shared.application.unit_of_work import SqlAlchemyUnitOfWork
@@ -134,10 +100,6 @@ async def get_command_bus() -> AsyncIterator[CommandBus]:
     bus.register(CreateCategory, CreateCategoryHandler(_uow()))
     bus.register(CreateProduct, CreateProductHandler(_uow()))
     bus.register(CreateGuestOrder, CreateGuestOrderHandler(_uow()))
-    bus.register(AddSiteSection, AddSiteSectionHandler(_uow()))
-    bus.register(PublishSite, PublishSiteHandler(_uow()))
-    bus.register(CreateForm, CreateFormHandler(_uow()))
-    bus.register(SubmitForm, SubmitFormHandler(_uow()))
     bus.register(TrackPublicEvent, TrackPublicEventHandler(_uow()))
     bus.register(UpdateBusiness, UpdateBusinessHandler(_uow()))
     bus.register(ArchiveBusiness, ArchiveBusinessHandler(_uow()))
@@ -148,12 +110,6 @@ async def get_command_bus() -> AsyncIterator[CommandBus]:
     bus.register(DeleteCategory, DeleteCategoryHandler(_uow()))
     bus.register(UpdateProduct, UpdateProductHandler(_uow()))
     bus.register(ArchiveProduct, ArchiveProductHandler(_uow()))
-    bus.register(UpdateSiteSettings, UpdateSiteSettingsHandler(_uow()))
-    bus.register(UpdateSiteSection, UpdateSiteSectionHandler(_uow()))
-    bus.register(DeleteSiteSection, DeleteSiteSectionHandler(_uow()))
-    bus.register(UpdateForm, UpdateFormHandler(_uow()))
-    bus.register(DeleteForm, DeleteFormHandler(_uow()))
-    bus.register(UpdateSubmissionStatus, UpdateSubmissionStatusHandler(_uow()))
     bus.register(ChangeOrderStatus, ChangeOrderStatusHandler(_uow()))
     yield bus
 
@@ -165,17 +121,13 @@ async def get_query_bus(
     bus.register(GetCurrentUser, GetCurrentUserHandler(session))
     bus.register(ListManagedBusinesses, ListManagedBusinessesHandler(session))
     bus.register(GetPublicCatalog, GetPublicCatalogHandler(session))
-    bus.register(GetPublicBusinessSite, GetPublicBusinessSiteHandler(session))
+    bus.register(GetPublicBusiness, GetPublicBusinessHandler(session))
     bus.register(GetBusinessDashboard, GetBusinessDashboardHandler(session))
     bus.register(GetBusiness, GetBusinessHandler(session))
     bus.register(ListBusinessMembers, ListBusinessMembersHandler(session))
     bus.register(ListCategories, ListCategoriesHandler(session))
     bus.register(ListProducts, ListProductsHandler(session))
     bus.register(GetProduct, GetProductHandler(session))
-    bus.register(GetManagedSite, GetManagedSiteHandler(session))
-    bus.register(ListForms, ListFormsHandler(session))
-    bus.register(GetForm, GetFormHandler(session))
-    bus.register(ListSubmissions, ListSubmissionsHandler(session))
     bus.register(ListOrders, ListOrdersHandler(session))
     bus.register(GetOrder, GetOrderHandler(session))
     yield bus

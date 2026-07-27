@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 from app.modules.auth.api.routes import get_current_user
 from app.modules.auth.application.dto.auth import UserDTO
@@ -35,6 +35,8 @@ class CreateBusinessRequest(BaseModel):
     timezone: str = "America/Havana"
     contact_email: EmailStr | None = None
     contact_phone: str | None = Field(default=None, max_length=32)
+    hero_image_url: HttpUrl | None = None
+    logo_url: HttpUrl | None = None
 
 
 class UpdateBusinessRequest(BaseModel):
@@ -45,6 +47,9 @@ class UpdateBusinessRequest(BaseModel):
     timezone: str
     contact_email: EmailStr | None = None
     contact_phone: str | None = Field(default=None, max_length=32)
+    is_published: bool = False
+    hero_image_url: HttpUrl | None = None
+    logo_url: HttpUrl | None = None
 
 
 class MemberRequest(BaseModel):
@@ -62,7 +67,7 @@ async def create_business(
     user: Annotated[UserDTO, Depends(get_current_user)],
     bus: Annotated[CommandBus, Depends(get_command_bus)],
 ) -> BusinessDTO:
-    return await bus.dispatch(CreateBusiness(actor_user_id=user.id, **body.model_dump()))
+    return await bus.dispatch(CreateBusiness(actor_user_id=user.id, **body.model_dump(mode="json")))
 
 
 @router.get("", response_model=list[BusinessDTO])
@@ -89,7 +94,7 @@ async def update_business(
     user: Annotated[UserDTO, Depends(get_current_user)],
     bus: Annotated[CommandBus, Depends(get_command_bus)],
 ) -> BusinessDTO:
-    return await bus.dispatch(UpdateBusiness(user.id, business_id, **body.model_dump()))
+    return await bus.dispatch(UpdateBusiness(user.id, business_id, **body.model_dump(mode="json")))
 
 
 @router.delete("/{business_id}", status_code=status.HTTP_204_NO_CONTENT)

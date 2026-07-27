@@ -5,7 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.auth.infrastructure.models.user import UserModel
-from app.modules.businesses.application.dto.business import BusinessDTO, BusinessMemberDTO
+from app.modules.businesses.application.dto.business import (
+    BusinessDTO,
+    BusinessMemberDTO,
+    BusinessSiteDTO,
+)
 from app.modules.businesses.application.services.authorization import (
     BusinessAuthorizationService,
     BusinessPermission,
@@ -14,6 +18,7 @@ from app.modules.businesses.infrastructure.models.business import BusinessMember
 from app.modules.businesses.infrastructure.repositories.sqlalchemy_businesses import (
     SqlAlchemyBusinessRepository,
 )
+from app.modules.sites.infrastructure.models.site import BusinessSiteModel
 from app.shared.domain.exceptions import NotFoundError
 
 
@@ -29,17 +34,27 @@ class ListManagedBusinessesHandler:
     async def __call__(self, query: ListManagedBusinesses) -> list[BusinessDTO]:
         authorization = BusinessAuthorizationService(self.session)
         if await authorization.is_platform_admin(query.user_id):
-            businesses = list(
-                await self.session.scalars(
-                    select(BusinessModel)
+            rows = (
+                await self.session.execute(
+                    select(BusinessModel, BusinessSiteModel)
+                    .outerjoin(BusinessSiteModel, BusinessSiteModel.business_id == BusinessModel.id)
                     .where(BusinessModel.archived_at.is_(None))
                     .order_by(BusinessModel.name)
                 )
-            )
+            ).all()
         else:
-            businesses = await SqlAlchemyBusinessRepository(self.session).list_for_user(
-                query.user_id
-            )
+            rows = (
+                await self.session.execute(
+                    select(BusinessModel, BusinessSiteModel)
+                    .join(BusinessMemberModel)
+                    .outerjoin(BusinessSiteModel, BusinessSiteModel.business_id == BusinessModel.id)
+                    .where(
+                        BusinessMemberModel.user_id == query.user_id,
+                        BusinessModel.archived_at.is_(None),
+                    )
+                    .order_by(BusinessModel.name)
+                )
+            ).all()
         return [
             BusinessDTO(
                 item.id,
@@ -52,8 +67,12 @@ class ListManagedBusinessesHandler:
                 item.contact_email,
                 item.contact_phone,
                 item.is_published,
+                BusinessSiteDTO(
+                    site.hero_image_url if site else None,
+                    site.logo_url if site else None,
+                ),
             )
-            for item in businesses
+            for item, site in rows
         ]
 
 
@@ -81,6 +100,9 @@ class GetBusinessHandler:
         business = await repo.get_by_id(query.business_id)
         if business is None or business.archived_at is not None:
             raise NotFoundError("Business not found")
+        site = await self.session.scalar(
+            select(BusinessSiteModel).where(BusinessSiteModel.business_id == business.id)
+        )
         return BusinessDTO(
             business.id,
             business.name,
@@ -92,6 +114,10 @@ class GetBusinessHandler:
             business.contact_email,
             business.contact_phone,
             business.is_published,
+            BusinessSiteDTO(
+                site.hero_image_url if site else None,
+                site.logo_url if site else None,
+            ),
         )
 
 

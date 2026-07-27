@@ -3,6 +3,12 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class BusinessSiteDTO:
+    hero_image_url: str | None
+    logo_url: str | None
+
+
+@dataclass(frozen=True)
 class BusinessDTO:
     id: uuid.UUID
     name: str
@@ -14,6 +20,7 @@ class BusinessDTO:
     contact_email: str | None
     contact_phone: str | None
     is_published: bool
+    site: BusinessSiteDTO
 
 
 @dataclass(frozen=True)

@@ -2,8 +2,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from sqlalchemy import select
+
 from app.modules.auth.infrastructure.repositories.sqlalchemy_users import SqlAlchemyUserRepository
-from app.modules.businesses.application.dto.business import BusinessDTO
+from app.modules.businesses.application.dto.business import BusinessDTO, BusinessSiteDTO
 from app.modules.businesses.application.services.authorization import (
     BusinessAuthorizationService,
     BusinessPermission,
@@ -37,6 +39,8 @@ class CreateBusiness:
     timezone: str = "America/Havana"
     contact_email: str | None = None
     contact_phone: str | None = None
+    hero_image_url: str | None = None
+    logo_url: str | None = None
 
 
 class CreateBusinessHandler:
@@ -65,7 +69,12 @@ class CreateBusinessHandler:
                     business_id=business.id, user_id=command.actor_user_id, role="owner"
                 )
             )
-            self.uow.session.add(BusinessSiteModel(business_id=business.id))
+            site = BusinessSiteModel(
+                business_id=business.id,
+                hero_image_url=command.hero_image_url,
+                logo_url=command.logo_url,
+            )
+            self.uow.session.add(site)
             await self.uow.commit()
             return BusinessDTO(
                 business.id,
@@ -78,6 +87,7 @@ class CreateBusinessHandler:
                 business.contact_email,
                 business.contact_phone,
                 business.is_published,
+                BusinessSiteDTO(site.hero_image_url, site.logo_url),
             )
 
 
@@ -92,6 +102,9 @@ class UpdateBusiness:
     timezone: str
     contact_email: str | None
     contact_phone: str | None
+    is_published: bool
+    hero_image_url: str | None
+    logo_url: str | None
 
 
 @dataclass(frozen=True)
@@ -123,7 +136,7 @@ class RemoveBusinessMember:
     member_user_id: uuid.UUID
 
 
-def _business_dto(business: BusinessModel) -> BusinessDTO:
+def _business_dto(business: BusinessModel, site: BusinessSiteModel) -> BusinessDTO:
     return BusinessDTO(
         business.id,
         business.name,
@@ -135,6 +148,7 @@ def _business_dto(business: BusinessModel) -> BusinessDTO:
         business.contact_email,
         business.contact_phone,
         business.is_published,
+        BusinessSiteDTO(site.hero_image_url, site.logo_url),
     )
 
 
@@ -168,8 +182,17 @@ class UpdateBusinessHandler:
             business.timezone = command.timezone
             business.contact_email = command.contact_email
             business.contact_phone = command.contact_phone
+            business.is_published = command.is_published
+            site = await self.uow.session.scalar(
+                select(BusinessSiteModel).where(BusinessSiteModel.business_id == business.id)
+            )
+            if site is None:
+                site = BusinessSiteModel(business_id=business.id)
+                self.uow.session.add(site)
+            site.hero_image_url = command.hero_image_url
+            site.logo_url = command.logo_url
             await self.uow.commit()
-            return _business_dto(business)
+            return _business_dto(business, site)
 
 
 class ArchiveBusinessHandler:

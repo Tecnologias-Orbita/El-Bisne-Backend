@@ -18,9 +18,34 @@ def create_business(client: TestClient, headers: dict[str, str], slug: str = "ca
             "timezone": "America/Havana",
             "contact_email": "owner@example.com",
             "contact_phone": "+5355555555",
+            "hero_image_url": "https://example.com/hero.jpg",
+            "logo_url": "https://example.com/logo.png",
         },
     )
     assert response.status_code == 201, response.text
+    return response.json()
+
+
+def publish_business(
+    client: TestClient, headers: dict[str, str], business: dict
+) -> dict:
+    response = client.put(
+        f"/api/v1/businesses/{business['id']}",
+        headers=headers,
+        json={
+            "name": business["name"],
+            "description": business["description"],
+            "business_type": business["business_type"],
+            "currency": business["currency"],
+            "timezone": business["timezone"],
+            "contact_email": business["contact_email"],
+            "contact_phone": business["contact_phone"],
+            "is_published": True,
+            "hero_image_url": business["site"]["hero_image_url"],
+            "logo_url": business["site"]["logo_url"],
+        },
+    )
+    assert response.status_code == 200, response.text
     return response.json()
 
 
@@ -74,6 +99,9 @@ def test_business_member_crud_and_role_protection(client: TestClient) -> None:
             "timezone": "America/Havana",
             "contact_email": "owner@example.com",
             "contact_phone": "+5355555555",
+            "is_published": False,
+            "hero_image_url": "https://example.com/new-hero.jpg",
+            "logo_url": "https://example.com/new-logo.png",
         },
     )
     assert updated.status_code == 200
@@ -108,54 +136,27 @@ def test_business_member_crud_and_role_protection(client: TestClient) -> None:
     assert client.get(business_url, headers=owner_headers).status_code == 404
 
 
-def test_site_section_crud_and_public_visibility(client: TestClient) -> None:
+def test_business_always_includes_fixed_template_information(client: TestClient) -> None:
     _, headers = register_and_login(client, "site@example.com")
     business = create_business(client, headers, "sitio-demo")
-    site_url = f"/api/v1/businesses/{business['id']}/site"
+    business_url = f"/api/v1/businesses/{business['id']}"
 
-    assert client.get(site_url, headers=headers).status_code == 200
-    assert (
-        client.put(
-            site_url,
-            headers=headers,
-            json={
-                "favicon_url": "https://example.com/icon.png",
-                "palette": {"primary": "#112233"},
-                "typography": {"heading": "Inter"},
-                "seo": {"title": "Sitio demo"},
-            },
-        ).status_code
-        == 204
-    )
-
-    section = client.post(
-        f"{site_url}/sections",
-        headers=headers,
-        json={"section_type": "hero", "position": 0, "content": {"title": "Hola"}},
-    )
-    assert section.status_code == 201
-    section_id = section.json()["id"]
-    assert (
-        client.put(
-            f"{site_url}/sections/{section_id}",
-            headers=headers,
-            json={
-                "section_type": "hero",
-                "position": 0,
-                "content": {"title": "Bienvenido"},
-                "is_visible": True,
-            },
-        ).status_code
-        == 200
-    )
+    managed = client.get(business_url, headers=headers)
+    assert managed.status_code == 200
+    assert managed.json()["site"] == {
+        "hero_image_url": "https://example.com/hero.jpg",
+        "logo_url": "https://example.com/logo.png",
+    }
 
     assert client.get("/api/v1/public/businesses/sitio-demo").status_code == 404
-    assert client.post(f"{site_url}/publish", headers=headers).status_code == 204
+    published = publish_business(client, headers, business)
     public = client.get("/api/v1/public/businesses/sitio-demo")
     assert public.status_code == 200
-    assert public.json()["sections"][0]["content"]["title"] == "Bienvenido"
-
-    assert client.delete(f"{site_url}/sections/{section_id}", headers=headers).status_code == 204
+    assert public.json() == published
+    assert public.json()["name"] == "Café Sol"
+    assert public.json()["description"] == "Café de prueba"
+    assert public.json()["contact_email"] == "owner@example.com"
+    assert client.get(f"{business_url}/site", headers=headers).status_code == 404
 
 
 def test_catalog_crud_and_public_catalog(client: TestClient) -> None:
@@ -222,12 +223,7 @@ def test_catalog_crud_and_public_catalog(client: TestClient) -> None:
         == 200
     )
 
-    assert (
-        client.post(
-            f"/api/v1/businesses/{business['id']}/site/publish", headers=headers
-        ).status_code
-        == 204
-    )
+    publish_business(client, headers, business)
     public = client.get("/api/v1/public/businesses/catalogo-demo/catalog")
     assert public.status_code == 200
     assert public.json()["items"][0]["price"] == "4.00"
@@ -236,78 +232,6 @@ def test_catalog_crud_and_public_catalog(client: TestClient) -> None:
         client.delete(f"{catalog_url}/categories/{category_id}", headers=headers).status_code == 409
     )
     assert client.delete(f"{catalog_url}/products/{product_id}", headers=headers).status_code == 204
-
-
-def test_form_crud_public_submission_and_management(client: TestClient) -> None:
-    _, headers = register_and_login(client, "forms@example.com")
-    business = create_business(client, headers, "formularios-demo")
-    forms_url = f"/api/v1/businesses/{business['id']}/forms"
-    client.post(f"/api/v1/businesses/{business['id']}/site/publish", headers=headers)
-
-    form = client.post(
-        forms_url,
-        headers=headers,
-        json={
-            "name": "Contacto",
-            "description": "Solicitud",
-            "fields": [
-                {
-                    "name": "message",
-                    "label": "Mensaje",
-                    "field_type": "textarea",
-                    "position": 0,
-                    "is_required": True,
-                    "config": {},
-                }
-            ],
-        },
-    )
-    assert form.status_code == 201
-    form_id = form.json()["id"]
-    assert client.get(forms_url, headers=headers).status_code == 200
-    assert client.get(f"{forms_url}/{form_id}", headers=headers).status_code == 200
-    assert (
-        client.put(
-            f"{forms_url}/{form_id}",
-            headers=headers,
-            json={
-                "name": "Contacto actualizado",
-                "description": "Solicitud",
-                "status": "published",
-                "fields": [
-                    {
-                        "name": "message",
-                        "label": "Mensaje",
-                        "field_type": "textarea",
-                        "position": 0,
-                        "is_required": True,
-                        "config": {},
-                    }
-                ],
-            },
-        ).status_code
-        == 200
-    )
-
-    submission = client.post(
-        f"/api/v1/public/businesses/formularios-demo/forms/{form_id}/submissions",
-        json={"data": {"message": "Necesito información"}, "contact_email": "client@example.com"},
-    )
-    assert submission.status_code == 201, submission.text
-    submission_id = submission.json()["id"]
-    managed = client.get(f"{forms_url}/management/submissions", headers=headers)
-    assert managed.status_code == 200
-    assert len(managed.json()) == 1
-    assert (
-        client.patch(
-            f"{forms_url}/management/submissions/{submission_id}",
-            headers=headers,
-            json={"status": "closed"},
-        ).status_code
-        == 200
-    )
-    assert client.delete(f"{forms_url}/{form_id}", headers=headers).status_code == 204
-    assert client.get(f"{forms_url}/{form_id}", headers=headers).json()["status"] == "archived"
 
 
 def test_order_idempotency_status_and_analytics(client: TestClient) -> None:
@@ -327,7 +251,7 @@ def test_order_idempotency_status_and_analytics(client: TestClient) -> None:
             "is_published": True,
         },
     ).json()
-    client.post(f"/api/v1/businesses/{business_id}/site/publish", headers=headers)
+    publish_business(client, headers, business)
 
     assert (
         client.post(

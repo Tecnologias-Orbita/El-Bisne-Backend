@@ -1,9 +1,13 @@
 # Documentación técnica completa de El Bisne Backend
 
-Última revisión: 23 de julio de 2026.
+Última revisión: 25 de julio de 2026.
 
 Esta documentación describe el comportamiento implementado actualmente. La
 fuente definitiva del contrato HTTP sigue siendo `/docs` y `/openapi.json`.
+
+Para implementar el cliente web debe usarse también
+[`FRONTEND_API_DOCUMENTATION.md`](FRONTEND_API_DOCUMENTATION.md), que enumera
+las 40 operaciones HTTP con bodies, respuestas, permisos, defaults y ejemplos.
 
 ## 1. Visión general
 
@@ -90,8 +94,7 @@ necesita una fila en `business_members`. Archivar un negocio está reservado al
 No requieren JWT:
 
 - Registro, login y refresh.
-- Landing y catálogo publicados.
-- Envío de formularios publicados.
+- Información del negocio y catálogo publicados.
 - Creación idempotente de pedidos invitados.
 - Eventos analíticos públicos permitidos.
 - Root y health check.
@@ -129,6 +132,9 @@ No requieren JWT:
 | `contact_email` | email/null | Destino de contacto/notificaciones. |
 | `contact_phone` | string/null | Contacto telefónico. |
 | `is_published` | boolean | Controla exposición pública. |
+| `site` | BusinessSiteDTO | Extensión visual incluida siempre en la respuesta. |
+
+`BusinessSiteDTO` contiene `hero_image_url` y `logo_url`, ambas URL opcionales.
 
 ### CategoryDTO y ProductDTO
 
@@ -150,29 +156,17 @@ No requieren JWT:
 `CatalogDTO` añade `business_id`, `business_name`, `items`, `total`, `page` y
 `page_size`.
 
-### Sitio y secciones
+### Plantilla pública fija
 
-`SectionDTO` contiene `id`, `section_type`, `position`, `content` JSON e
-`is_visible`. Los tipos permitidos son `hero`, `text`, `gallery`, `contact` y
-`form`.
+`BusinessDTO` siempre incluye `site`, aunque sus imágenes sean nulas. Es un
+nombre contractual heredado para el objeto que contiene únicamente
+`hero_image_url` y `logo_url`; no representa un sitio configurable. El título
+del hero se obtiene de `name`, su texto de `description`, y el contacto de
+`contact_email` y `contact_phone`; estos campos pertenecen a `businesses`.
 
-`PublicSiteDTO` contiene identidad del negocio, `favicon_url`, `palette`,
-`typography`, `seo` y la lista ordenada de secciones visibles.
-
-### Formularios
-
-| Campo de FormFieldInput | Tipo | Motivo |
-|---|---|---|
-| `name` | string | Clave estable usada dentro del JSON enviado. |
-| `label` | string | Texto mostrado al cliente. |
-| `field_type` | string | Tipo de control/validación. |
-| `position` | integer | Orden visual. |
-| `is_required` | boolean | Obligatoriedad del valor. |
-| `config` | JSON/null | Opciones y restricciones específicas. |
-
-Tipos actuales: `text`, `textarea`, `email`, `phone`, `number`, `select` y
-`checkbox`. Estados de formulario: `draft`, `published`, `archived`. Estados de
-respuesta: `new`, `in_progress`, `closed`, `discarded`.
+No existen secciones, paletas, tipografías ni plantillas seleccionables. Tanto
+la consulta administrativa como la pública ensamblan `businesses` y
+`business_sites` en una sola respuesta.
 
 ### Pedidos
 
@@ -232,10 +226,10 @@ Bearer requerido. Responde `UserDTO` del token actual.
 
 | Método y path | Permiso | Body/Parámetros | Respuesta y reglas |
 |---|---|---|---|
-| `POST /businesses` | Usuario autenticado | `name`, `slug`, `business_type`, `description?`, `currency=USD`, `timezone=America/Havana`, contacto opcional | `201 BusinessDTO`; crea membresía `owner` y sitio vacío. |
+| `POST /businesses` | Usuario autenticado | `name`, `slug`, `business_type`, `description?`, `currency=USD`, `timezone=America/Havana`, contacto, `hero_image_url?`, `logo_url?` | `201 BusinessDTO`; crea membresía `owner` y extensión visual 1:1. |
 | `GET /businesses` | Usuario autenticado | — | Negocios del usuario; platform admin recibe todos los no archivados. |
 | `GET /businesses/{business_id}` | `VIEW` | UUID | `200 BusinessDTO`; archivado devuelve `404`. |
-| `PUT /businesses/{business_id}` | `MANAGE_BUSINESS` | Todos los campos editables salvo slug/publicación | `200 BusinessDTO`. |
+| `PUT /businesses/{business_id}` | `MANAGE_BUSINESS` | Datos editables salvo slug, más publicación e imágenes de plantilla | `200 BusinessDTO` combinado. |
 | `DELETE /businesses/{business_id}` | `owner` o platform admin | UUID | `204`; soft delete: fija `archived_at` y despublica. |
 
 El slug se normaliza a minúsculas ASCII con guiones, mide 3–100 caracteres y es
@@ -250,17 +244,13 @@ globalmente único.
 | `PATCH /businesses/{business_id}/members/{member_user_id}` | `MANAGE_MEMBERS` | `role` | `204`; no permite modificar al owner. |
 | `DELETE /businesses/{business_id}/members/{member_user_id}` | `MANAGE_MEMBERS` | — | `204`; no permite eliminar al owner. |
 
-### Sitio y landing
+### Landing pública fija
 
 | Método y path | Permiso | Entrada | Resultado |
 |---|---|---|---|
-| `GET /businesses/{business_id}/site` | `VIEW` | — | Sitio y todas sus secciones. |
-| `PUT /businesses/{business_id}/site` | `MANAGE_CONTENT` | `favicon_url?`, `palette`, `typography`, `seo` | `204`. |
-| `POST /businesses/{business_id}/site/publish` | `MANAGE_CONTENT` | — | `204`; publica sitio y negocio. |
-| `POST /businesses/{business_id}/site/sections` | `MANAGE_CONTENT` | `section_type`, `position>=0`, `content` | `201 SectionDTO`; posición única. |
-| `PUT /businesses/{business_id}/site/sections/{section_id}` | `MANAGE_CONTENT` | Campos anteriores + `is_visible` | `200 SectionDTO`. |
-| `DELETE /businesses/{business_id}/site/sections/{section_id}` | `MANAGE_CONTENT` | — | `204`; borrado físico de la sección. |
-| `GET /public/businesses/{business_slug}` | Pública | slug | `PublicSiteDTO`; exige negocio y sitio publicados. |
+| `GET /businesses/{business_id}` | `VIEW` | — | `BusinessDTO` con información del negocio y objeto `site`. |
+| `PUT /businesses/{business_id}` | `MANAGE_BUSINESS` | Datos del negocio, `is_published`, `hero_image_url?`, `logo_url?` | `200 BusinessDTO` combinado. |
+| `GET /public/businesses/{business_slug}` | Pública | slug | `BusinessDTO` combinado; exige negocio publicado. |
 
 ### Categorías
 
@@ -286,19 +276,6 @@ El slug es único solo dentro de su negocio.
 
 La categoría, si se proporciona, debe pertenecer al mismo negocio. Precio no
 puede ser negativo y `product_type` debe ser `product` o `service`.
-
-### Formularios y respuestas
-
-| Método y path | Permiso | Entrada | Resultado |
-|---|---|---|---|
-| `POST /businesses/{business_id}/forms` | `MANAGE_CONTENT` | Nombre, descripción y 1–100 fields | `201 FormDTO`; actualmente se crea publicado. |
-| `GET /businesses/{business_id}/forms` | `VIEW` | — | Lista detallada con fields. |
-| `GET /businesses/{business_id}/forms/{form_id}` | `VIEW` | UUID | `FormDetailDTO`. |
-| `PUT /businesses/{business_id}/forms/{form_id}` | `MANAGE_CONTENT` | Payload completo + status | Reemplaza la definición de fields; `200 FormDTO`. |
-| `DELETE /businesses/{business_id}/forms/{form_id}` | `MANAGE_CONTENT` | — | Sin respuestas: borra; con respuestas: archiva. |
-| `GET /businesses/{business_id}/forms/management/submissions` | `VIEW` | Query `form_id?` | Lista respuestas, más recientes primero. |
-| `PATCH /businesses/{business_id}/forms/management/submissions/{submission_id}` | `MANAGE_CONTENT` | `status` | `SubmissionDTO`. |
-| `POST /public/businesses/{business_slug}/forms/{form_id}/submissions` | Pública | `data`, email/teléfono opcionales | `201 SubmissionDTO`; valida requeridos y rechaza claves desconocidas. |
 
 ### Pedidos
 
@@ -354,8 +331,6 @@ erDiagram
     users ||--o{ business_members : joins
     businesses ||--o{ business_members : has
     businesses ||--|| business_sites : owns
-    site_templates o|--o{ business_sites : configures
-    business_sites ||--o{ site_sections : contains
     businesses ||--o{ categories : groups
     businesses ||--o{ products : sells
     categories o|--o{ products : classifies
@@ -363,10 +338,6 @@ erDiagram
     products ||--o{ product_offers : promotes
     products ||--o{ product_relations : source
     products ||--o{ product_relations : related
-    businesses ||--o{ forms : owns
-    forms ||--o{ form_fields : defines
-    forms ||--o{ form_submissions : receives
-    businesses ||--o{ form_submissions : scopes
     businesses ||--o{ orders : receives
     orders ||--o{ order_items : contains
     products o|--o{ order_items : snapshots
@@ -430,7 +401,7 @@ Tenant y raíz de los datos de un emprendimiento.
 | `name` | varchar(160) | No | Nombre comercial. |
 | `slug` | varchar(100), unique, index | No | URL pública estable; actualmente único global. |
 | `description` | text | Sí | Presentación pública extensa. |
-| `business_type` | varchar(50) | No | Segmentación/selección futura de plantillas. |
+| `business_type` | varchar(50) | No | Clasificación comercial del negocio. |
 | `currency` | varchar(3), default USD | No | Moneda base para precios y pedidos. |
 | `timezone` | varchar(64), default America/Havana | No | Cálculo local de horarios y reportes. |
 | `contact_email` | varchar(320) | Sí | Contacto y futuro destino de notificaciones. |
@@ -438,7 +409,8 @@ Tenant y raíz de los datos de un emprendimiento.
 | `is_published` | boolean, default false | No | Puerta global de visibilidad pública. |
 | `archived_at` | timestamptz | Sí | Soft delete del tenant. |
 
-Es padre de membresías, sitio, catálogo, formularios, pedidos y analítica.
+Es padre de membresías, extensión visual, catálogo, pedidos y
+analítica.
 
 ### 6.4 `business_members`
 
@@ -452,49 +424,21 @@ Tabla puente N:M entre usuarios y negocios.
 
 Constraint único `(business_id, user_id)` evita membresías duplicadas.
 
-### 6.5 `site_templates`
+### 6.5 `business_sites`
 
-Catálogo interno de plantillas reutilizables. Está modelado, pero aún no tiene
-endpoints de gestión.
-
-| Columna | Tipo | Nula | Motivo |
-|---|---|---:|---|
-| `name` | varchar(100), unique | No | Identidad legible de la plantilla. |
-| `recommended_business_types` | JSONB, default [] | No | Segmentos para los que se recomienda. |
-| `config` | JSONB, default {} | No | Configuración extensible del frontend. |
-| `is_active` | boolean, default true | No | Retiro sin romper sitios existentes. |
-
-### 6.6 `business_sites`
-
-Configuración de landing, exactamente una por negocio.
+Extensión visual mínima, exactamente una por negocio. No almacena plantillas,
+secciones, colores, tipografías ni SEO. La API la incorpora siempre dentro de
+`BusinessDTO`.
 
 | Columna | Tipo | Nula | Motivo |
 |---|---|---:|---|
 | `business_id` | UUID FK businesses, unique | No | Relación 1:1; cascade físico. |
-| `template_id` | UUID FK site_templates | Sí | Plantilla opcional. Sin cascade para proteger referencias. |
-| `favicon_url` | text | Sí | URL externa del icono. |
-| `seo` | JSONB, default {} | No | Título, descripción y metadatos extensibles. |
-| `palette` | JSONB, default {} | No | Colores configurables. |
-| `typography` | JSONB, default {} | No | Fuentes y escalas tipográficas. |
-| `is_published` | boolean, default false | No | Visibilidad específica del sitio. |
+| `hero_image_url` | text | Sí | Imagen externa del hero de la plantilla única. |
+| `logo_url` | text | Sí | Logo externo del negocio. |
 
-Para la consulta pública, negocio y sitio deben estar publicados.
+La publicación se controla únicamente con `businesses.is_published`.
 
-### 6.7 `site_sections`
-
-Bloques ordenados de una landing.
-
-| Columna | Tipo | Nula | Motivo |
-|---|---|---:|---|
-| `site_id` | UUID FK business_sites, index | No | Sitio propietario; `ON DELETE CASCADE`. |
-| `section_type` | varchar(20) | No | Discriminador del bloque tipado. |
-| `position` | integer | No | Orden visual. |
-| `content` | JSONB | No | Contenido flexible validado según el tipo. |
-| `is_visible` | boolean, default true | No | Oculta sin eliminar. |
-
-Constraint único `(site_id, position)` evita dos bloques en la misma posición.
-
-### 6.8 `categories`
+### 6.6 `categories`
 
 Agrupa productos dentro de un tenant.
 
@@ -572,50 +516,7 @@ del pedido ni expuesta por endpoints.
 | `ends_at` | timestamptz | No | Fin de vigencia. |
 | `is_active` | boolean, default true | No | Desactivación manual. |
 
-### 6.13 `forms`
-
-Definición de formularios personalizables.
-
-| Columna | Tipo | Nula | Motivo |
-|---|---|---:|---|
-| `business_id` | UUID FK businesses, index | No | Tenant; cascade físico. |
-| `name` | varchar(120) | No | Identidad administrativa. |
-| `description` | text | Sí | Instrucciones al cliente. |
-| `status` | varchar(20), default draft | No | `draft`, `published`, `archived`. |
-
-### 6.14 `form_fields`
-
-Campos que componen un formulario.
-
-| Columna | Tipo | Nula | Motivo |
-|---|---|---:|---|
-| `form_id` | UUID FK forms, index | No | Formulario; cascade físico. |
-| `name` | varchar(80) | No | Clave del valor dentro de `data`. |
-| `label` | varchar(160) | No | Etiqueta visual. |
-| `field_type` | varchar(20) | No | Tipo y estrategia de validación. |
-| `position` | integer | No | Orden visual. |
-| `is_required` | boolean, default false | No | Obligatoriedad. |
-| `config` | JSONB, default {} | No | Opciones/restricciones extensibles. |
-
-Único `(form_id, position)`.
-
-### 6.15 `form_submissions`
-
-Respuesta histórica de un cliente.
-
-| Columna | Tipo | Nula | Motivo |
-|---|---|---:|---|
-| `form_id` | UUID FK forms, index | No | Formulario original; `ON DELETE RESTRICT`. |
-| `business_id` | UUID FK businesses, index | No | Consulta y aislamiento directo; `RESTRICT`. |
-| `contact_email` | varchar(320) | Sí | Respuesta al cliente. |
-| `contact_phone` | varchar(32) | Sí | Contacto alternativo. |
-| `data` | JSONB | No | Valores dinámicos validados contra fields. |
-| `status` | varchar(20), default new | No | Flujo `new/in_progress/closed/discarded`. |
-
-La duplicación de `business_id` es intencional: acelera consultas por tenant y
-preserva el ámbito aunque cambie la definición.
-
-### 6.16 `orders`
+### 6.13 `orders`
 
 Cabecera de pedido invitado.
 
@@ -636,7 +537,7 @@ Cabecera de pedido invitado.
 
 Únicos `(business_id, order_number)` y `(business_id, idempotency_key)`.
 
-### 6.17 `order_items`
+### 6.14 `order_items`
 
 Líneas y snapshot monetario del pedido.
 
@@ -649,7 +550,7 @@ Líneas y snapshot monetario del pedido.
 | `quantity` | integer | No | Unidades solicitadas. |
 | `line_total` | numeric(14,2) | No | `unit_price × quantity` congelado. |
 
-### 6.18 `order_status_history`
+### 6.15 `order_status_history`
 
 Auditoría de transiciones.
 
@@ -661,7 +562,7 @@ Auditoría de transiciones.
 | `to_status` | varchar(20) | No | Estado resultante. |
 | `comment` | text | Sí | Justificación o contexto. |
 
-### 6.19 `analytics_events`
+### 6.16 `analytics_events`
 
 Eventos mínimos para estadísticas.
 
@@ -674,21 +575,21 @@ Eventos mínimos para estadísticas.
 | `anonymous_reference` | varchar(64) | Sí | Correlación no identificable del visitante. |
 | `metadata` | JSONB, default {} | No | Contexto futuro sin migrar columnas. |
 
-### 6.20 `outbox_events`
+### 6.17 `outbox_events`
 
 Transactional outbox para trabajo asíncrono. No tiene API pública.
 
 | Columna | Tipo | Nula | Motivo |
 |---|---|---:|---|
-| `event_type` | varchar(100), index | No | Enrutamiento: `order.created`, `form.submitted`, etc. |
+| `event_type` | varchar(100), index | No | Enrutamiento; por ejemplo, `order.created`. |
 | `payload` | JSONB | No | Datos serializables del evento. |
 | `attempts` | integer, default 0 | No | Política de reintentos. |
 | `processed_at` | timestamptz | Sí | Marca consumo exitoso. |
 | `last_error` | text | Sí | Diagnóstico del último fallo. |
 
-Pedido/formulario y evento outbox se insertan en la misma transacción.
+Pedido y evento outbox se insertan en la misma transacción.
 
-### 6.21 `notification_deliveries`
+### 6.18 `notification_deliveries`
 
 Trazabilidad de envíos. Modelada, pero el worker/proveedor todavía no está
 implementado.
@@ -710,14 +611,11 @@ implementado.
 - `products`: `archived_at`, `is_published=false`, `is_available=false`.
 - `users`: el modelo dispone de `archived_at` e `is_active`, aunque aún no hay
   endpoint administrativo para archivarlos.
-- `forms`: si tienen respuestas, `DELETE` cambia status a `archived`.
 
 ### Cascadas físicas explícitas
 
 - Usuario → refresh tokens y membresías.
-- Negocio → membresías, sitio y formularios.
-- Sitio → secciones.
-- Formulario → fields; submissions usan `RESTRICT`.
+- Negocio → membresías y extensión visual.
 - Producto → imágenes, relaciones y ofertas.
 - Pedido → items e historial.
 
@@ -731,8 +629,8 @@ normales deben usar archivado y no SQL DELETE directo.
 - Hash de refresh token.
 - Slug global de negocio.
 - Una membresía por usuario/negocio.
-- Un sitio por negocio.
-- Una posición por sitio/sección, formulario/field y producto/imagen.
+- Una extensión visual por negocio.
+- Una posición por producto/imagen.
 - Slug de categoría y producto dentro del negocio.
 - Número e idempotency key de pedido dentro del negocio.
 - Par producto/producto relacionado.
@@ -746,7 +644,7 @@ JWT válido
   → CreateBusiness
   → insertar business
   → insertar business_member(role=owner)
-  → insertar business_site(draft)
+  → insertar business_site(hero_image_url, logo_url)
   → commit único
 ```
 
@@ -760,17 +658,6 @@ slug publicado + Idempotency-Key
   → insertar order + snapshots + historial pending
   → insertar outbox_event(order.created)
   → insertar analytics_event(order_created)
-  → commit único
-```
-
-### Formulario público
-
-```text
-negocio publicado + formulario published
-  → cargar fields
-  → comprobar requeridos y rechazar claves desconocidas
-  → insertar submission
-  → insertar outbox_event(form.submitted)
   → commit único
 ```
 
@@ -792,7 +679,6 @@ Estas tablas forman parte del esquema, pero todavía no tienen CRUD HTTP:
 
 - `users` como administración global; solo registro/login/me.
 - `refresh_tokens`; son internos de autenticación.
-- `site_templates`.
 - `product_images`.
 - `product_relations`.
 - `product_offers`.
@@ -802,7 +688,7 @@ Estas tablas forman parte del esquema, pero todavía no tienen CRUD HTTP:
 - `outbox_events` y `notification_deliveries`; operación interna.
 
 La ausencia de endpoint es deliberada para entidades internas y una tarea
-pendiente para plantillas, imágenes, relaciones y ofertas.
+pendiente para imágenes, relaciones y ofertas.
 
 ## 10. Limitaciones conocidas del estado actual
 
