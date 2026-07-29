@@ -53,8 +53,12 @@ permisos y ejemplos, está en
 La documentación completa se genera en `/docs`. Los principales contratos son:
 
 - `POST /api/v1/auth/register`, `/login` y `/refresh`.
+- Alta pública de usuario, negocio y suscripción en
+  `POST /api/v1/auth/register-business`.
+- Configuración bancaria pública y tasas para usuarios autenticados bajo
+  `/api/v1/platform`, con gestión reservada al administrador global.
 - `GET /api/v1/auth/me`.
-- `POST` y `GET /api/v1/businesses`.
+- `POST` y `GET /api/v1/businesses`; toda alta exige referencia de pago y plan.
 - Administración de catálogo bajo `/api/v1/businesses/{business_id}/catalog`.
 - Plantilla pública fija integrada en `GET/PUT /api/v1/businesses/{business_id}`;
   incluye hero, logo, descripción y contacto sin secciones ni temas editables.
@@ -82,6 +86,25 @@ Requisitos: Docker Engine y Docker Compose v2.
 cd El-Bisne-Backend
 cp .env.example .env
 ```
+
+### Datos de desarrollo
+
+Después de ejecutar las migraciones, el seed idempotente crea un administrador
+global, configuración de cobro, tasas de cambio y un negocio con catálogo:
+
+```bash
+uv run python -m app.cli.seed
+# o dentro de Docker
+docker compose exec api uv run --no-sync python -m app.cli.seed
+```
+
+Credenciales locales:
+
+- Platform admin: `admin@elbisne.dev` / `Admin123!`
+- Owner demo: `owner.demo@elbisne.dev` / `Demo123!`
+
+Estas credenciales son exclusivamente para desarrollo y deben cambiarse en
+cualquier entorno compartido o productivo.
 
 Antes de desplegar, cambia `POSTGRES_PASSWORD` en `.env`. Como
 `DATABASE_URL` se usa al ejecutar comandos desde la máquina anfitriona, debe

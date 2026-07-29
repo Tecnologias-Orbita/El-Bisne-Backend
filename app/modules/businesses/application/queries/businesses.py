@@ -67,6 +67,7 @@ class ListManagedBusinessesHandler:
                 item.contact_email,
                 item.contact_phone,
                 item.is_published,
+                item.platform_category_id,
                 BusinessSiteDTO(
                     site.hero_image_url if site else None,
                     site.logo_url if site else None,
@@ -114,6 +115,7 @@ class GetBusinessHandler:
             business.contact_email,
             business.contact_phone,
             business.is_published,
+            business.platform_category_id,
             BusinessSiteDTO(
                 site.hero_image_url if site else None,
                 site.logo_url if site else None,

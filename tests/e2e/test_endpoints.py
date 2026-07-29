@@ -13,6 +13,12 @@ def create_business(client: TestClient, headers: dict[str, str], slug: str = "ca
             "name": "Café Sol",
             "slug": slug,
             "business_type": "restaurant",
+            "transaction_number": f"txn-{slug}",
+            "plan": "basic",
+            "phone_number": "+5355555555",
+            "execution_date": "2026-07-01",
+            "expiration_date": "2026-08-01",
+            "amount_paid": "1000.00",
             "description": "Café de prueba",
             "currency": "USD",
             "timezone": "America/Havana",
@@ -26,9 +32,7 @@ def create_business(client: TestClient, headers: dict[str, str], slug: str = "ca
     return response.json()
 
 
-def publish_business(
-    client: TestClient, headers: dict[str, str], business: dict
-) -> dict:
+def publish_business(client: TestClient, headers: dict[str, str], business: dict) -> dict:
     response = client.put(
         f"/api/v1/businesses/{business['id']}",
         headers=headers,
@@ -77,6 +81,129 @@ def test_authentication_endpoints_and_invalid_token(client: TestClient) -> None:
         client.get("/api/v1/auth/me", headers={"Authorization": "Bearer invalid"}).status_code
         == 401
     )
+
+
+def test_platform_billing_and_public_business_onboarding(client: TestClient) -> None:
+    _, regular_headers = register_and_login(client, "regular@example.com")
+    _, admin_headers = register_and_login(client, "platform@example.com")
+    run_async(make_platform_admin("platform@example.com"))
+
+    settings_url = "/api/v1/platform/payment-settings"
+    admin_settings_url = "/api/v1/platform/admin/payment-settings"
+    settings_body = {
+        "bank_card": "9200123412341234",
+        "confirmation_phone_number": "+5350000000",
+    }
+    assert client.get(settings_url).status_code == 404
+    denied_settings = client.put(admin_settings_url, headers=regular_headers, json=settings_body)
+    assert denied_settings.status_code == 403
+    configured = client.put(admin_settings_url, headers=admin_headers, json=settings_body)
+    assert configured.status_code == 200
+    assert client.get(settings_url).json() == settings_body
+
+    rates_admin_url = "/api/v1/platform/admin/exchange-rates"
+    created_rate = client.post(
+        rates_admin_url,
+        headers=admin_headers,
+        json={"currency": "usd", "value_in_cup": "350.250000"},
+    )
+    assert created_rate.status_code == 201, created_rate.text
+    rate_id = created_rate.json()["id"]
+    assert client.get("/api/v1/platform/exchange-rates").status_code in {401, 403}
+    rates = client.get("/api/v1/platform/exchange-rates", headers=regular_headers)
+    assert rates.json()[0]["currency"] == "USD"
+    assert (
+        client.put(
+            f"{rates_admin_url}/{rate_id}",
+            headers=admin_headers,
+            json={"currency": "EUR", "value_in_cup": "390.000000"},
+        ).status_code
+        == 200
+    )
+
+    onboarding = client.post(
+        "/api/v1/auth/register-business",
+        json={
+            "email": "new-owner@example.com",
+            "password": "strong-password",
+            "full_name": "Nueva Dueña",
+            "business_name": "Nuevo negocio",
+            "slug": "nuevo-negocio",
+            "business_type": "services",
+            "currency": "CUP",
+            "transaction_number": "transfer-0001",
+            "plan": "premium",
+            "phone_number": "+5351111111",
+            "execution_date": "2026-07-15",
+            "expiration_date": "2026-08-15",
+            "amount_paid": "2500.00",
+        },
+    )
+    assert onboarding.status_code == 201, onboarding.text
+    result = onboarding.json()
+    assert result["user"]["email"] == "new-owner@example.com"
+    assert result["business"]["slug"] == "nuevo-negocio"
+    owner_headers = {"Authorization": f"Bearer {result['tokens']['access_token']}"}
+    business_id = result["business"]["id"]
+
+    owner_payments = client.get(
+        f"/api/v1/businesses/{business_id}/subscription-payments",
+        headers=owner_headers,
+    )
+    assert owner_payments.status_code == 200
+    assert owner_payments.json()[0]["transaction_number"] == "transfer-0001"
+    assert owner_payments.json()[0]["plan"] == "premium"
+    assert owner_payments.json()[0]["execution_date"] == "2026-07-15"
+    assert owner_payments.json()[0]["expiration_date"] == "2026-08-15"
+    assert owner_payments.json()[0]["amount_paid"] == "2500.00"
+
+    all_payments = client.get("/api/v1/platform/admin/subscription-payments", headers=admin_headers)
+    assert all_payments.status_code == 200
+    payment_id = all_payments.json()[0]["id"]
+    payment_filters = {
+        "payment_id": payment_id,
+        "business_id": business_id,
+        "business_name": "nuevo NEG",
+        "transaction_number": "FER-000",
+        "plan": "premium",
+        "phone_number": "5111",
+        "execution_date": "2026-07-15",
+        "expiration_date": "2026-08-15",
+        "amount_paid": "2500.00",
+    }
+    for filter_name, filter_value in payment_filters.items():
+        filtered = client.get(
+            "/api/v1/platform/admin/subscription-payments",
+            headers=admin_headers,
+            params={filter_name: filter_value},
+        )
+        assert filtered.status_code == 200, filtered.text
+        assert [payment["id"] for payment in filtered.json()] == [payment_id]
+
+    no_name_match = client.get(
+        "/api/v1/platform/admin/subscription-payments",
+        headers=admin_headers,
+        params={"business_name": "inexistente"},
+    )
+    assert no_name_match.status_code == 200
+    assert no_name_match.json() == []
+
+    updated_payment = client.put(
+        f"/api/v1/platform/admin/subscription-payments/{payment_id}",
+        headers=admin_headers,
+        json={
+            "transaction_number": "transfer-0001-confirmed",
+            "plan": "premium",
+            "phone_number": "+5351111111",
+            "execution_date": "2026-07-16",
+            "expiration_date": "2026-09-16",
+            "amount_paid": "3000.00",
+        },
+    )
+    assert updated_payment.status_code == 200
+    assert updated_payment.json()["transaction_number"] == "transfer-0001-confirmed"
+    assert updated_payment.json()["amount_paid"] == "3000.00"
+    assert client.delete(f"{rates_admin_url}/{rate_id}", headers=admin_headers).status_code == 204
 
 
 def test_business_member_crud_and_role_protection(client: TestClient) -> None:
@@ -232,6 +359,85 @@ def test_catalog_crud_and_public_catalog(client: TestClient) -> None:
         client.delete(f"{catalog_url}/categories/{category_id}", headers=headers).status_code == 409
     )
     assert client.delete(f"{catalog_url}/products/{product_id}", headers=headers).status_code == 204
+
+
+def test_platform_categories_can_classify_businesses_and_products(client: TestClient) -> None:
+    _, owner_headers = register_and_login(client, "classified@example.com")
+    _, admin_headers = register_and_login(client, "categories-admin@example.com")
+    run_async(make_platform_admin("categories-admin@example.com"))
+    admin_url = "/api/v1/platform/admin/categories"
+
+    denied = client.post(
+        admin_url,
+        headers=owner_headers,
+        json={"name": "Gastronomía", "slug": "gastronomia"},
+    )
+    assert denied.status_code == 403
+    created = client.post(
+        admin_url,
+        headers=admin_headers,
+        json={
+            "name": "Gastronomía",
+            "slug": "gastronomia",
+            "description": "Comida y bebida",
+            "is_active": True,
+        },
+    )
+    assert created.status_code == 201, created.text
+    platform_category_id = created.json()["id"]
+    assert (
+        client.get("/api/v1/platform/categories", headers=owner_headers).json()[0]["id"]
+        == platform_category_id
+    )
+
+    business = create_business(client, owner_headers, "clasificado")
+    business_url = f"/api/v1/businesses/{business['id']}"
+    classified_business = client.put(
+        business_url,
+        headers=owner_headers,
+        json={
+            "name": business["name"],
+            "description": business["description"],
+            "business_type": business["business_type"],
+            "currency": business["currency"],
+            "timezone": business["timezone"],
+            "contact_email": business["contact_email"],
+            "contact_phone": business["contact_phone"],
+            "is_published": False,
+            "hero_image_url": business["site"]["hero_image_url"],
+            "logo_url": business["site"]["logo_url"],
+            "platform_category_id": platform_category_id,
+        },
+    )
+    assert classified_business.status_code == 200, classified_business.text
+    assert classified_business.json()["platform_category_id"] == platform_category_id
+
+    catalog_url = f"{business_url}/catalog"
+    product = client.post(
+        f"{catalog_url}/products",
+        headers=owner_headers,
+        json={
+            "name": "Producto clasificado",
+            "slug": "producto-clasificado",
+            "price": "10.00",
+            "currency": "CUP",
+            "platform_category_id": platform_category_id,
+        },
+    )
+    assert product.status_code == 201, product.text
+    assert product.json()["platform_category_id"] == platform_category_id
+
+    assert (
+        client.delete(f"{admin_url}/{platform_category_id}", headers=admin_headers).status_code
+        == 204
+    )
+    assert client.get(business_url, headers=owner_headers).json()["platform_category_id"] is None
+    assert (
+        client.get(f"{catalog_url}/products/{product.json()['id']}", headers=owner_headers).json()[
+            "platform_category_id"
+        ]
+        is None
+    )
 
 
 def test_order_idempotency_status_and_analytics(client: TestClient) -> None:

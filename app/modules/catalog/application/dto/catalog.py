@@ -14,6 +14,7 @@ class CategoryDTO:
 class ProductDTO:
     id: uuid.UUID
     category_id: uuid.UUID | None
+    platform_category_id: uuid.UUID | None
     name: str
     slug: str
     product_type: str
@@ -28,6 +29,7 @@ class ProductDTO:
 class CatalogDTO:
     business_id: uuid.UUID
     business_name: str
+    categories: list[CategoryDTO]
     items: list[ProductDTO]
     total: int
     page: int = 1

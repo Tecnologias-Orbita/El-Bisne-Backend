@@ -25,6 +25,7 @@ services:
       APP_NAME: ${APP_NAME:-El Bisne API}
       APP_ENV: ${APP_ENV:-development}
       SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-el_bisne}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-el_bisne}
     ports:
       - "8000:8000"

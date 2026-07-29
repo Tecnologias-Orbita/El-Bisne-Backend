@@ -39,6 +39,7 @@ def run_async(coroutine: object) -> object:
 
 async def reset_database() -> None:
     async with test_engine.begin() as connection:
+
         def drop_existing_schema(sync_connection: object) -> None:
             existing_metadata = MetaData()
             existing_metadata.reflect(bind=sync_connection)

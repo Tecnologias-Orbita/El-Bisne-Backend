@@ -1,5 +1,10 @@
 from app.modules.analytics.infrastructure.models.analytics import AnalyticsEventModel
 from app.modules.auth.infrastructure.models.user import RefreshTokenModel, UserModel
+from app.modules.billing.infrastructure.models.billing import (
+    ExchangeRateModel,
+    PlatformPaymentSettingsModel,
+    SubscriptionPaymentModel,
+)
 from app.modules.businesses.infrastructure.models.business import (
     BusinessMemberModel,
     BusinessModel,
@@ -20,6 +25,9 @@ from app.modules.orders.infrastructure.models.order import (
     OrderModel,
     OrderStatusHistoryModel,
 )
+from app.modules.platform_categories.infrastructure.models.platform_category import (
+    PlatformCategoryModel,
+)
 from app.modules.sites.infrastructure.models.site import BusinessSiteModel
 
 __all__ = [
@@ -28,15 +36,19 @@ __all__ = [
     "BusinessModel",
     "BusinessSiteModel",
     "CategoryModel",
+    "ExchangeRateModel",
     "NotificationDeliveryModel",
     "OrderItemModel",
     "OrderModel",
     "OrderStatusHistoryModel",
     "OutboxEventModel",
+    "PlatformPaymentSettingsModel",
+    "PlatformCategoryModel",
     "ProductImageModel",
     "ProductModel",
     "ProductOfferModel",
     "ProductRelationModel",
     "RefreshTokenModel",
+    "SubscriptionPaymentModel",
     "UserModel",
 ]

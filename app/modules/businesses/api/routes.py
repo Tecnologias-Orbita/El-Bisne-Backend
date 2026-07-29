@@ -1,4 +1,6 @@
 import uuid
+from datetime import date
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
@@ -6,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 from app.modules.auth.api.routes import get_current_user
 from app.modules.auth.application.dto.auth import UserDTO
+from app.modules.billing.domain.plans import SubscriptionPlan
 from app.modules.businesses.application.commands.businesses import (
     AddBusinessMember,
     ArchiveBusiness,
@@ -30,6 +33,13 @@ class CreateBusinessRequest(BaseModel):
     name: str = Field(min_length=2, max_length=160)
     slug: str = Field(min_length=3, max_length=100)
     business_type: str = Field(min_length=2, max_length=50)
+    transaction_number: str = Field(min_length=1, max_length=120)
+    plan: SubscriptionPlan
+    phone_number: str = Field(min_length=3, max_length=32)
+    execution_date: date
+    expiration_date: date
+    amount_paid: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
+    platform_category_id: uuid.UUID | None = None
     description: str | None = None
     currency: str = Field(default="USD", min_length=3, max_length=3)
     timezone: str = "America/Havana"
@@ -50,6 +60,7 @@ class UpdateBusinessRequest(BaseModel):
     is_published: bool = False
     hero_image_url: HttpUrl | None = None
     logo_url: HttpUrl | None = None
+    platform_category_id: uuid.UUID | None = None
 
 
 class MemberRequest(BaseModel):
@@ -67,7 +78,14 @@ async def create_business(
     user: Annotated[UserDTO, Depends(get_current_user)],
     bus: Annotated[CommandBus, Depends(get_command_bus)],
 ) -> BusinessDTO:
-    return await bus.dispatch(CreateBusiness(actor_user_id=user.id, **body.model_dump(mode="json")))
+    payload = body.model_dump(mode="json")
+    payload.update(
+        execution_date=body.execution_date,
+        expiration_date=body.expiration_date,
+        amount_paid=body.amount_paid,
+        platform_category_id=body.platform_category_id,
+    )
+    return await bus.dispatch(CreateBusiness(actor_user_id=user.id, **payload))
 
 
 @router.get("", response_model=list[BusinessDTO])
@@ -94,7 +112,9 @@ async def update_business(
     user: Annotated[UserDTO, Depends(get_current_user)],
     bus: Annotated[CommandBus, Depends(get_command_bus)],
 ) -> BusinessDTO:
-    return await bus.dispatch(UpdateBusiness(user.id, business_id, **body.model_dump(mode="json")))
+    payload = body.model_dump(mode="json")
+    payload["platform_category_id"] = body.platform_category_id
+    return await bus.dispatch(UpdateBusiness(user.id, business_id, **payload))
 
 
 @router.delete("/{business_id}", status_code=status.HTTP_204_NO_CONTENT)

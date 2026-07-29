@@ -30,11 +30,18 @@ class GetPublicCatalogHandler:
         business = await SqlAlchemyBusinessRepository(self.session).get_by_slug(query.business_slug)
         if business is None or not business.is_published or business.archived_at is not None:
             raise NotFoundError("Business not found")
-        products = await SqlAlchemyCatalogRepository(self.session).list_public_products(business.id)
+        repository = SqlAlchemyCatalogRepository(self.session)
+        products = await repository.list_public_products(business.id)
+        categories = [
+            CategoryDTO(category.id, category.name, category.slug)
+            for category in await repository.list_categories(business.id)
+            if category.is_visible
+        ]
         items = [
             ProductDTO(
                 product.id,
                 product.category_id,
+                product.platform_category_id,
                 product.name,
                 product.slug,
                 product.product_type,
@@ -46,7 +53,7 @@ class GetPublicCatalogHandler:
             )
             for product in products
         ]
-        return CatalogDTO(business.id, business.name, items, len(items))
+        return CatalogDTO(business.id, business.name, categories, items, len(items))
 
 
 @dataclass(frozen=True)
@@ -80,6 +87,7 @@ def _product_dto(product: object) -> ProductDTO:
     return ProductDTO(
         product.id,
         product.category_id,
+        product.platform_category_id,
         product.name,
         product.slug,
         product.product_type,

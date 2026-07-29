@@ -15,6 +15,9 @@ from app.modules.catalog.infrastructure.models.catalog import CategoryModel, Pro
 from app.modules.catalog.infrastructure.repositories.sqlalchemy_catalog import (
     SqlAlchemyCatalogRepository,
 )
+from app.modules.platform_categories.infrastructure.models.platform_category import (
+    PlatformCategoryModel,
+)
 from app.shared.application.unit_of_work import SqlAlchemyUnitOfWork
 from app.shared.domain.exceptions import (
     ConflictError,
@@ -41,6 +44,7 @@ class CreateProduct:
     price: Decimal
     currency: str
     category_id: uuid.UUID | None = None
+    platform_category_id: uuid.UUID | None = None
     description: str | None = None
     image_url: str | None = None
     is_published: bool = False
@@ -85,12 +89,19 @@ class CreateProductHandler:
                 command.business_id, command.category_id
             ):
                 raise ValidationError("Category does not belong to this business")
+            if command.platform_category_id is not None:
+                platform_category = await self.uow.session.get(
+                    PlatformCategoryModel, command.platform_category_id
+                )
+                if platform_category is None or not platform_category.is_active:
+                    raise ValidationError("Platform category does not exist or is inactive")
             slug = normalize_slug(command.slug)
             if await repo.product_slug_exists(command.business_id, slug):
                 raise ConflictError("Product slug already exists")
             product = ProductModel(
                 business_id=command.business_id,
                 category_id=command.category_id,
+                platform_category_id=command.platform_category_id,
                 name=command.name.strip(),
                 slug=slug,
                 product_type=command.product_type,
@@ -105,6 +116,7 @@ class CreateProductHandler:
             return ProductDTO(
                 product.id,
                 product.category_id,
+                product.platform_category_id,
                 product.name,
                 product.slug,
                 product.product_type,
@@ -142,6 +154,7 @@ class UpdateProduct:
     business_id: uuid.UUID
     product_id: uuid.UUID
     category_id: uuid.UUID | None
+    platform_category_id: uuid.UUID | None
     name: str
     slug: str
     product_type: str
@@ -240,6 +253,12 @@ class UpdateProductHandler:
                 command.business_id, command.category_id
             ):
                 raise ValidationError("Category does not belong to this business")
+            if command.platform_category_id is not None:
+                platform_category = await self.uow.session.get(
+                    PlatformCategoryModel, command.platform_category_id
+                )
+                if platform_category is None or not platform_category.is_active:
+                    raise ValidationError("Platform category does not exist or is inactive")
             slug = normalize_slug(command.slug)
             existing = await self.uow.session.scalar(
                 select(ProductModel.id).where(
@@ -252,6 +271,7 @@ class UpdateProductHandler:
                 raise ConflictError("Product slug already exists")
             for field in (
                 "category_id",
+                "platform_category_id",
                 "product_type",
                 "description",
                 "price",
@@ -269,6 +289,7 @@ class UpdateProductHandler:
             return ProductDTO(
                 product.id,
                 product.category_id,
+                product.platform_category_id,
                 product.name,
                 product.slug,
                 product.product_type,

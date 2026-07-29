@@ -21,6 +21,9 @@ class BusinessModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     contact_phone: Mapped[str | None] = mapped_column(String(32))
     is_published: Mapped[bool] = mapped_column(Boolean, default=False)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    platform_category_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("platform_categories.id", ondelete="SET NULL"), index=True
+    )
 
 
 class BusinessMemberModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):

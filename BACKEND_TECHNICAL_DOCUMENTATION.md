@@ -224,9 +224,25 @@ Bearer requerido. Responde `UserDTO` del token actual.
 
 ### Negocios
 
+`POST /auth/register-business` es público y crea atómicamente usuario, negocio,
+membresía `owner`, presentación fija, pago inicial y sesión. Exige
+`transaction_number`, `plan` (`basic`/`premium`), `phone_number`, fechas de
+ejecución y expiración, y monto pagado.
+
+### Facturación de plataforma
+
+| Método y path | Permiso | Resultado |
+|---|---|---|
+| `GET /platform/payment-settings` | Público | Tarjeta y teléfono de confirmación. |
+| `GET /platform/exchange-rates` | Usuario autenticado | Monedas y valor de una unidad en CUP. |
+| `GET /businesses/{business_id}/subscription-payments` | Owner/platform admin | Historial del negocio. |
+| `PUT /platform/admin/payment-settings` | Platform admin | Crea o actualiza la configuración única. |
+| `POST/PUT/DELETE /platform/admin/exchange-rates` | Platform admin | Gestión de tasas. |
+| `GET/POST/PUT/DELETE /platform/admin/subscription-payments` | Platform admin | Gestión global de pagos. |
+
 | Método y path | Permiso | Body/Parámetros | Respuesta y reglas |
 |---|---|---|---|
-| `POST /businesses` | Usuario autenticado | `name`, `slug`, `business_type`, `description?`, `currency=USD`, `timezone=America/Havana`, contacto, `hero_image_url?`, `logo_url?` | `201 BusinessDTO`; crea membresía `owner` y extensión visual 1:1. |
+| `POST /businesses` | Usuario autenticado | Datos del negocio + transacción, plan y teléfono | `201 BusinessDTO`; crea owner, presentación y pago. |
 | `GET /businesses` | Usuario autenticado | — | Negocios del usuario; platform admin recibe todos los no archivados. |
 | `GET /businesses/{business_id}` | `VIEW` | UUID | `200 BusinessDTO`; archivado devuelve `404`. |
 | `PUT /businesses/{business_id}` | `MANAGE_BUSINESS` | Datos editables salvo slug, más publicación e imágenes de plantilla | `200 BusinessDTO` combinado. |
@@ -330,6 +346,7 @@ erDiagram
     users ||--o{ refresh_tokens : owns
     users ||--o{ business_members : joins
     businesses ||--o{ business_members : has
+    businesses ||--o{ business_subscription_payments : pays
     businesses ||--|| business_sites : owns
     businesses ||--o{ categories : groups
     businesses ||--o{ products : sells
@@ -455,7 +472,11 @@ Agrupa productos dentro de un tenant.
 Constraint único `(business_id, slug)`. No se puede eliminar desde la API si
 tiene productos, incluidos archivados.
 
-### 6.9 `products`
+### 6.7 `products`
+
+Además de la categoría propia del negocio (`category_id`), cada producto puede
+guardar `platform_category_id`, FK nullable hacia `platform_categories` con
+`ON DELETE SET NULL`.
 
 Producto o servicio vendible.
 
@@ -478,7 +499,7 @@ Producto o servicio vendible.
 
 Constraint único `(business_id, slug)`.
 
-### 6.10 `product_images`
+### 6.8 `product_images`
 
 Galería adicional. Modelada pero sin endpoints actuales.
 
@@ -491,7 +512,7 @@ Galería adicional. Modelada pero sin endpoints actuales.
 
 Único `(product_id, position)`.
 
-### 6.11 `product_relations`
+### 6.9 `product_relations`
 
 Productos recomendados/relacionados. Modelada pero sin endpoints actuales.
 
@@ -503,7 +524,7 @@ Productos recomendados/relacionados. Modelada pero sin endpoints actuales.
 Único `(product_id, related_product_id)`. La relación es dirigida; A→B no crea
 automáticamente B→A.
 
-### 6.12 `product_offers`
+### 6.10 `product_offers`
 
 Ventanas de precio promocional. Modelada pero todavía no aplicada al cálculo
 del pedido ni expuesta por endpoints.
@@ -516,7 +537,32 @@ del pedido ni expuesta por endpoints.
 | `ends_at` | timestamptz | No | Fin de vigencia. |
 | `is_active` | boolean, default true | No | Desactivación manual. |
 
-### 6.13 `orders`
+### 6.11 `business_subscription_payments`
+
+Historial de suscripciones pagadas por los negocios a la plataforma. Guarda
+`business_id`, `transaction_number` único, `plan` (`basic`/`premium`) y
+`phone_number`, además de `execution_date`, `expiration_date` y `amount_paid`
+como `NUMERIC(14,2)`. La expiración debe ser igual o posterior a la ejecución y
+el monto no puede ser negativo en base de datos. La FK usa `RESTRICT` para
+preservar el registro.
+
+Los listados permiten filtrar por todas las propiedades expuestas del pago. El
+listado administrativo también filtra por UUID o nombre parcial del negocio;
+nombre, transacción y teléfono usan coincidencia parcial sin distinguir
+mayúsculas y el resto usa coincidencia exacta. Todos los filtros se pueden
+combinar.
+
+### 6.12 `platform_payment_settings`
+
+Fila única con `bank_card` y `confirmation_phone_number`. Un check de base de
+datos fuerza `id=1` e impide almacenar más de una configuración.
+
+### 6.13 `exchange_rates`
+
+`currency` es un código único de tres letras y `value_in_cup` es un
+`NUMERIC(18,6)` positivo. CUP es siempre la moneda de referencia.
+
+### 6.14 `orders`
 
 Cabecera de pedido invitado.
 
@@ -537,7 +583,7 @@ Cabecera de pedido invitado.
 
 Únicos `(business_id, order_number)` y `(business_id, idempotency_key)`.
 
-### 6.14 `order_items`
+### 6.15 `order_items`
 
 Líneas y snapshot monetario del pedido.
 
@@ -550,7 +596,7 @@ Líneas y snapshot monetario del pedido.
 | `quantity` | integer | No | Unidades solicitadas. |
 | `line_total` | numeric(14,2) | No | `unit_price × quantity` congelado. |
 
-### 6.15 `order_status_history`
+### 6.16 `order_status_history`
 
 Auditoría de transiciones.
 
@@ -562,7 +608,7 @@ Auditoría de transiciones.
 | `to_status` | varchar(20) | No | Estado resultante. |
 | `comment` | text | Sí | Justificación o contexto. |
 
-### 6.16 `analytics_events`
+### 6.17 `analytics_events`
 
 Eventos mínimos para estadísticas.
 
@@ -575,7 +621,7 @@ Eventos mínimos para estadísticas.
 | `anonymous_reference` | varchar(64) | Sí | Correlación no identificable del visitante. |
 | `metadata` | JSONB, default {} | No | Contexto futuro sin migrar columnas. |
 
-### 6.17 `outbox_events`
+### 6.18 `outbox_events`
 
 Transactional outbox para trabajo asíncrono. No tiene API pública.
 
@@ -589,7 +635,7 @@ Transactional outbox para trabajo asíncrono. No tiene API pública.
 
 Pedido y evento outbox se insertan en la misma transacción.
 
-### 6.18 `notification_deliveries`
+### 6.19 `notification_deliveries`
 
 Trazabilidad de envíos. Modelada, pero el worker/proveedor todavía no está
 implementado.
@@ -640,11 +686,13 @@ normales deben usar archivado y no SQL DELETE directo.
 ### Alta de negocio
 
 ```text
-JWT válido
-  → CreateBusiness
-  → insertar business
+onboarding público o JWT válido
+  → validar email/slug/transacción únicos
+  → insertar user (solo onboarding) + business
   → insertar business_member(role=owner)
   → insertar business_site(hero_image_url, logo_url)
+  → insertar business_subscription_payment
+  → emitir tokens (solo onboarding)
   → commit único
 ```
 

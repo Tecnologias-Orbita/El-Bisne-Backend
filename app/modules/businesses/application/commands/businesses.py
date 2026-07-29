@@ -1,10 +1,13 @@
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 
 from app.modules.auth.infrastructure.repositories.sqlalchemy_users import SqlAlchemyUserRepository
+from app.modules.billing.domain.plans import SubscriptionPlan
+from app.modules.billing.infrastructure.models.billing import SubscriptionPaymentModel
 from app.modules.businesses.application.dto.business import BusinessDTO, BusinessSiteDTO
 from app.modules.businesses.application.services.authorization import (
     BusinessAuthorizationService,
@@ -17,6 +20,9 @@ from app.modules.businesses.infrastructure.models.business import (
 )
 from app.modules.businesses.infrastructure.repositories.sqlalchemy_businesses import (
     SqlAlchemyBusinessRepository,
+)
+from app.modules.platform_categories.infrastructure.models.platform_category import (
+    PlatformCategoryModel,
 )
 from app.modules.sites.infrastructure.models.site import BusinessSiteModel
 from app.shared.application.unit_of_work import SqlAlchemyUnitOfWork
@@ -34,6 +40,12 @@ class CreateBusiness:
     name: str
     slug: str
     business_type: str
+    transaction_number: str
+    plan: SubscriptionPlan
+    phone_number: str
+    execution_date: date
+    expiration_date: date
+    amount_paid: Decimal
     description: str | None = None
     currency: str = "USD"
     timezone: str = "America/Havana"
@@ -41,6 +53,7 @@ class CreateBusiness:
     contact_phone: str | None = None
     hero_image_url: str | None = None
     logo_url: str | None = None
+    platform_category_id: uuid.UUID | None = None
 
 
 class CreateBusinessHandler:
@@ -48,11 +61,26 @@ class CreateBusinessHandler:
         self.uow = uow
 
     async def __call__(self, command: CreateBusiness) -> BusinessDTO:
+        if command.expiration_date < command.execution_date:
+            raise ValidationError("Expiration date cannot be earlier than execution date")
         async with self.uow:
+            if command.platform_category_id is not None:
+                platform_category = await self.uow.session.get(
+                    PlatformCategoryModel, command.platform_category_id
+                )
+                if platform_category is None or not platform_category.is_active:
+                    raise ValidationError("Platform category does not exist or is inactive")
             repo = SqlAlchemyBusinessRepository(self.uow.session)
             slug = normalize_slug(command.slug)
             if await repo.get_by_slug(slug):
                 raise ConflictError("This business slug is already in use")
+            transaction_number = command.transaction_number.strip()
+            if await self.uow.session.scalar(
+                select(SubscriptionPaymentModel.id).where(
+                    SubscriptionPaymentModel.transaction_number == transaction_number
+                )
+            ):
+                raise ConflictError("This transaction number is already registered")
             business = BusinessModel(
                 name=command.name.strip(),
                 slug=slug,
@@ -62,6 +90,7 @@ class CreateBusinessHandler:
                 timezone=command.timezone,
                 contact_email=command.contact_email,
                 contact_phone=command.contact_phone,
+                platform_category_id=command.platform_category_id,
             )
             await repo.add(business)
             await repo.add_member(
@@ -75,6 +104,17 @@ class CreateBusinessHandler:
                 logo_url=command.logo_url,
             )
             self.uow.session.add(site)
+            self.uow.session.add(
+                SubscriptionPaymentModel(
+                    business_id=business.id,
+                    transaction_number=transaction_number,
+                    plan=command.plan,
+                    phone_number=command.phone_number.strip(),
+                    execution_date=command.execution_date,
+                    expiration_date=command.expiration_date,
+                    amount_paid=command.amount_paid,
+                )
+            )
             await self.uow.commit()
             return BusinessDTO(
                 business.id,
@@ -87,6 +127,7 @@ class CreateBusinessHandler:
                 business.contact_email,
                 business.contact_phone,
                 business.is_published,
+                business.platform_category_id,
                 BusinessSiteDTO(site.hero_image_url, site.logo_url),
             )
 
@@ -105,6 +146,7 @@ class UpdateBusiness:
     is_published: bool
     hero_image_url: str | None
     logo_url: str | None
+    platform_category_id: uuid.UUID | None
 
 
 @dataclass(frozen=True)
@@ -148,6 +190,7 @@ def _business_dto(business: BusinessModel, site: BusinessSiteModel) -> BusinessD
         business.contact_email,
         business.contact_phone,
         business.is_published,
+        business.platform_category_id,
         BusinessSiteDTO(site.hero_image_url, site.logo_url),
     )
 
@@ -166,6 +209,12 @@ class UpdateBusinessHandler:
 
     async def __call__(self, command: UpdateBusiness) -> BusinessDTO:
         async with self.uow:
+            if command.platform_category_id is not None:
+                platform_category = await self.uow.session.get(
+                    PlatformCategoryModel, command.platform_category_id
+                )
+                if platform_category is None or not platform_category.is_active:
+                    raise ValidationError("Platform category does not exist or is inactive")
             repo = SqlAlchemyBusinessRepository(self.uow.session)
             await BusinessAuthorizationService(self.uow.session).require(
                 command.actor_user_id,
@@ -183,6 +232,7 @@ class UpdateBusinessHandler:
             business.contact_email = command.contact_email
             business.contact_phone = command.contact_phone
             business.is_published = command.is_published
+            business.platform_category_id = command.platform_category_id
             site = await self.uow.session.scalar(
                 select(BusinessSiteModel).where(BusinessSiteModel.business_id == business.id)
             )

@@ -41,6 +41,7 @@ class CreateProductRequest(BaseModel):
     price: Decimal = Field(ge=0, decimal_places=2)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     category_id: uuid.UUID | None = None
+    platform_category_id: uuid.UUID | None = None
     description: str | None = None
     image_url: HttpUrl | None = None
     is_published: bool = False
@@ -57,6 +58,7 @@ class UpdateCategoryRequest(BaseModel):
 
 class UpdateProductRequest(BaseModel):
     category_id: uuid.UUID | None = None
+    platform_category_id: uuid.UUID | None = None
     name: str = Field(min_length=1, max_length=160)
     slug: str = Field(min_length=3, max_length=120)
     product_type: str
@@ -89,6 +91,8 @@ async def create_product(
 ) -> ProductDTO:
     data = body.model_dump(mode="json")
     data["price"] = body.price
+    data["category_id"] = body.category_id
+    data["platform_category_id"] = body.platform_category_id
     return await bus.dispatch(CreateProduct(user.id, business_id, **data))
 
 
@@ -153,6 +157,8 @@ async def update_product(
 ) -> ProductDTO:
     data = body.model_dump(mode="json")
     data["price"] = body.price
+    data["category_id"] = body.category_id
+    data["platform_category_id"] = body.platform_category_id
     return await bus.dispatch(UpdateProduct(user.id, business_id, product_id, **data))
 
 

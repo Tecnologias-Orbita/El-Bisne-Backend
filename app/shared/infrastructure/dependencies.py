@@ -15,12 +15,40 @@ from app.modules.analytics.application.queries.analytics import (
 from app.modules.auth.application.commands.auth import (
     LoginUser,
     LoginUserHandler,
+    OnboardBusiness,
+    OnboardBusinessHandler,
     RefreshSession,
     RefreshSessionHandler,
     RegisterUser,
     RegisterUserHandler,
 )
 from app.modules.auth.application.queries.users import GetCurrentUser, GetCurrentUserHandler
+from app.modules.billing.application.commands.billing import (
+    CreateExchangeRate,
+    CreateExchangeRateHandler,
+    CreateSubscriptionPayment,
+    CreateSubscriptionPaymentHandler,
+    DeleteExchangeRate,
+    DeleteExchangeRateHandler,
+    DeleteSubscriptionPayment,
+    DeleteSubscriptionPaymentHandler,
+    UpdateExchangeRate,
+    UpdateExchangeRateHandler,
+    UpdatePlatformPaymentSettings,
+    UpdatePlatformPaymentSettingsHandler,
+    UpdateSubscriptionPayment,
+    UpdateSubscriptionPaymentHandler,
+)
+from app.modules.billing.application.queries.billing import (
+    GetPlatformPaymentSettings,
+    GetPlatformPaymentSettingsHandler,
+    ListAllSubscriptionPayments,
+    ListAllSubscriptionPaymentsHandler,
+    ListBusinessSubscriptionPayments,
+    ListBusinessSubscriptionPaymentsHandler,
+    ListExchangeRates,
+    ListExchangeRatesHandler,
+)
 from app.modules.businesses.application.commands.businesses import (
     AddBusinessMember,
     AddBusinessMemberHandler,
@@ -79,7 +107,21 @@ from app.modules.orders.application.queries.orders import (
     ListOrders,
     ListOrdersHandler,
 )
+from app.modules.platform_categories.application.commands.platform_categories import (
+    CreatePlatformCategory,
+    CreatePlatformCategoryHandler,
+    DeletePlatformCategory,
+    DeletePlatformCategoryHandler,
+    UpdatePlatformCategory,
+    UpdatePlatformCategoryHandler,
+)
+from app.modules.platform_categories.application.queries.platform_categories import (
+    ListPlatformCategories,
+    ListPlatformCategoriesHandler,
+)
 from app.modules.sites.application.queries.sites import (
+    DiscoverPlatform,
+    DiscoverPlatformHandler,
     GetPublicBusiness,
     GetPublicBusinessHandler,
 )
@@ -94,6 +136,7 @@ def _uow() -> SqlAlchemyUnitOfWork:
 async def get_command_bus() -> AsyncIterator[CommandBus]:
     bus = CommandBus()
     bus.register(RegisterUser, RegisterUserHandler(_uow()))
+    bus.register(OnboardBusiness, OnboardBusinessHandler(_uow()))
     bus.register(LoginUser, LoginUserHandler(_uow()))
     bus.register(RefreshSession, RefreshSessionHandler(_uow()))
     bus.register(CreateBusiness, CreateBusinessHandler(_uow()))
@@ -111,6 +154,16 @@ async def get_command_bus() -> AsyncIterator[CommandBus]:
     bus.register(UpdateProduct, UpdateProductHandler(_uow()))
     bus.register(ArchiveProduct, ArchiveProductHandler(_uow()))
     bus.register(ChangeOrderStatus, ChangeOrderStatusHandler(_uow()))
+    bus.register(UpdatePlatformPaymentSettings, UpdatePlatformPaymentSettingsHandler(_uow()))
+    bus.register(CreateExchangeRate, CreateExchangeRateHandler(_uow()))
+    bus.register(UpdateExchangeRate, UpdateExchangeRateHandler(_uow()))
+    bus.register(DeleteExchangeRate, DeleteExchangeRateHandler(_uow()))
+    bus.register(CreateSubscriptionPayment, CreateSubscriptionPaymentHandler(_uow()))
+    bus.register(UpdateSubscriptionPayment, UpdateSubscriptionPaymentHandler(_uow()))
+    bus.register(DeleteSubscriptionPayment, DeleteSubscriptionPaymentHandler(_uow()))
+    bus.register(CreatePlatformCategory, CreatePlatformCategoryHandler(_uow()))
+    bus.register(UpdatePlatformCategory, UpdatePlatformCategoryHandler(_uow()))
+    bus.register(DeletePlatformCategory, DeletePlatformCategoryHandler(_uow()))
     yield bus
 
 
@@ -122,6 +175,7 @@ async def get_query_bus(
     bus.register(ListManagedBusinesses, ListManagedBusinessesHandler(session))
     bus.register(GetPublicCatalog, GetPublicCatalogHandler(session))
     bus.register(GetPublicBusiness, GetPublicBusinessHandler(session))
+    bus.register(DiscoverPlatform, DiscoverPlatformHandler(session))
     bus.register(GetBusinessDashboard, GetBusinessDashboardHandler(session))
     bus.register(GetBusiness, GetBusinessHandler(session))
     bus.register(ListBusinessMembers, ListBusinessMembersHandler(session))
@@ -130,4 +184,12 @@ async def get_query_bus(
     bus.register(GetProduct, GetProductHandler(session))
     bus.register(ListOrders, ListOrdersHandler(session))
     bus.register(GetOrder, GetOrderHandler(session))
+    bus.register(GetPlatformPaymentSettings, GetPlatformPaymentSettingsHandler(session))
+    bus.register(ListExchangeRates, ListExchangeRatesHandler(session))
+    bus.register(
+        ListBusinessSubscriptionPayments,
+        ListBusinessSubscriptionPaymentsHandler(session),
+    )
+    bus.register(ListAllSubscriptionPayments, ListAllSubscriptionPaymentsHandler(session))
+    bus.register(ListPlatformCategories, ListPlatformCategoriesHandler(session))
     yield bus

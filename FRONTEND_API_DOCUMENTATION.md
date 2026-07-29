@@ -114,6 +114,27 @@ Público.
 
 Email existente: `409`.
 
+### `POST /api/v1/auth/register-business`
+
+Onboarding público principal. Crea usuario, negocio, membresía owner, pago y
+sesión en una sola transacción. Además de los campos del usuario y del negocio,
+recibe obligatoriamente:
+
+```json
+{
+  "transaction_number": "transfer-0001",
+  "plan": "basic",
+  "phone_number": "+5351111111",
+  "execution_date": "2026-07-28",
+  "expiration_date": "2026-08-28",
+  "amount_paid": "2500.00"
+}
+```
+
+`plan` admite `basic` o `premium`. Responde `201` con `user`, `business` y
+`tokens`. Email, slug o transacción repetidos devuelven `409` sin crear datos
+parciales.
+
 ### `POST /api/v1/auth/login`
 
 ```json
@@ -150,13 +171,19 @@ Bearer. `200`: el DTO de usuario mostrado en registro.
 
 ### `POST /api/v1/businesses`
 
-Bearer. Crea negocio, owner y extensión visual.
+Bearer. Crea negocio, owner, extensión visual y pago de suscripción.
 
 ```json
 {
   "name": "Café Sol",
   "slug": "cafe-sol",
   "business_type": "restaurant",
+  "transaction_number": "transfer-0002",
+  "plan": "premium",
+  "phone_number": "+5351111111",
+  "execution_date": "2026-07-28",
+  "expiration_date": "2026-08-28",
+  "amount_paid": "2500.00",
   "description": "Café y repostería",
   "currency": "USD",
   "timezone": "America/Havana",
@@ -167,7 +194,8 @@ Bearer. Crea negocio, owner y extensión visual.
 }
 ```
 
-Requeridos: `name` (2–160), `slug` (3–100), `business_type` (2–50).
+Requeridos: `name`, `slug`, `business_type`, `transaction_number`, `plan`,
+`phone_number`, `execution_date`, `expiration_date` y `amount_paid`.
 Defaults: `currency=USD`, `timezone=America/Havana`, publicación `false`.
 Contacto e imágenes aceptan `null`. `201`: `BusinessDTO`. Slug ocupado: `409`.
 
@@ -443,6 +471,47 @@ Permiso de analítica. `200`:
 ```
 
 Conversión: `orders / visits * 100`; sin visitas devuelve `0`.
+
+## Suscripciones y configuración de pago
+
+## Categorías de plataforma
+
+- `GET /api/v1/platform/categories`: cualquier usuario autenticado; devuelve
+  únicamente categorías globales activas.
+- `GET /api/v1/platform/admin/categories`: platform admin; incluye activas e
+  inactivas.
+- `POST /api/v1/platform/admin/categories`: crea una categoría con `name`,
+  `slug`, `description` opcional e `is_active`.
+- `PUT/DELETE /api/v1/platform/admin/categories/{category_id}`: gestión para
+  platform admin.
+
+Los DTO y payloads de negocio y producto incluyen `platform_category_id`, que
+puede ser un UUID o `null`. En productos, este campo es adicional a
+`category_id`, que continúa representando la categoría interna del negocio.
+Solo se pueden asignar categorías globales existentes y activas. Al eliminar
+una categoría global, las asociaciones pasan automáticamente a `null`.
+
+- `GET /api/v1/platform/payment-settings`: público; devuelve `bank_card` y
+  `confirmation_phone_number` para mostrar antes del onboarding.
+- `GET /api/v1/platform/exchange-rates`: bearer para cualquier usuario;
+  devuelve monedas y su `value_in_cup`.
+- `GET /api/v1/businesses/{business_id}/subscription-payments`: bearer;
+  disponible solo para el owner del negocio o platform admin.
+- `PUT /api/v1/platform/admin/payment-settings`: platform admin; upsert de la
+  configuración bancaria singleton.
+- `/api/v1/platform/admin/exchange-rates`: CRUD para platform admin.
+- `/api/v1/platform/admin/subscription-payments`: CRUD global para platform
+  admin. Su listado puede combinar filtros por `business_id`, `payment_id`,
+  `business_name`, `transaction_number`, `plan`, `phone_number`,
+  `execution_date`, `expiration_date`, `amount_paid` y `created_at`. El nombre,
+  la transacción y el teléfono aceptan coincidencias parciales sin distinguir
+  mayúsculas. El historial de un negocio acepta los mismos filtros propios del
+  pago, excepto `business_id` y `business_name`.
+
+Una tasa usa `{ "currency": "USD", "value_in_cup": "350.000000" }`. Un pago
+usa `business_id`, `transaction_number`, `plan`, `phone_number`,
+`execution_date`, `expiration_date` y `amount_paid`. La expiración no puede ser
+anterior a la ejecución y el monto debe ser mayor que cero al crear o editar.
 
 ## API pública
 

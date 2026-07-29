@@ -20,6 +20,7 @@ class BusinessDTO:
     contact_email: str | None
     contact_phone: str | None
     is_published: bool
+    platform_category_id: uuid.UUID | None
     site: BusinessSiteDTO
 
 
