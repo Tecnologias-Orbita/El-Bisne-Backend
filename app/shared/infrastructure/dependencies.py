@@ -22,7 +22,12 @@ from app.modules.auth.application.commands.auth import (
     RegisterUser,
     RegisterUserHandler,
 )
-from app.modules.auth.application.queries.users import GetCurrentUser, GetCurrentUserHandler
+from app.modules.auth.application.queries.users import (
+    CheckOnboardingAvailability,
+    CheckOnboardingAvailabilityHandler,
+    GetCurrentUser,
+    GetCurrentUserHandler,
+)
 from app.modules.billing.application.commands.billing import (
     CreateExchangeRate,
     CreateExchangeRateHandler,
@@ -94,6 +99,12 @@ from app.modules.catalog.application.queries.catalog import (
     ListCategoriesHandler,
     ListProducts,
     ListProductsHandler,
+)
+from app.modules.images.application.commands import (
+    DeleteImage,
+    DeleteImageHandler,
+    UploadImage,
+    UploadImageHandler,
 )
 from app.modules.orders.application.commands.orders import (
     ChangeOrderStatus,
@@ -183,6 +194,8 @@ async def get_command_bus() -> AsyncIterator[CommandBus]:
     bus.register(CreatePlatformCategory, CreatePlatformCategoryHandler(_uow()))
     bus.register(UpdatePlatformCategory, UpdatePlatformCategoryHandler(_uow()))
     bus.register(DeletePlatformCategory, DeletePlatformCategoryHandler(_uow()))
+    bus.register(UploadImage, UploadImageHandler(_uow()))
+    bus.register(DeleteImage, DeleteImageHandler(_uow()))
     yield bus
 
 
@@ -191,6 +204,10 @@ async def get_query_bus(
 ) -> AsyncIterator[QueryBus]:
     bus = QueryBus()
     bus.register(GetCurrentUser, GetCurrentUserHandler(session))
+    bus.register(
+        CheckOnboardingAvailability,
+        CheckOnboardingAvailabilityHandler(session),
+    )
     bus.register(ListManagedBusinesses, ListManagedBusinessesHandler(session))
     bus.register(GetPublicCatalog, GetPublicCatalogHandler(session))
     bus.register(GetPublicBusiness, GetPublicBusinessHandler(session))

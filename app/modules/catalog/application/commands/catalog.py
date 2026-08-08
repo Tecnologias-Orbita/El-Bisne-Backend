@@ -68,7 +68,7 @@ class CreateCategoryHandler:
             )
             await repo.add_category(category)
             await self.uow.commit()
-            return CategoryDTO(category.id, category.name, category.slug)
+            return CategoryDTO(category.id, category.name, category.slug, category.image_url)
 
 
 class CreateProductHandler:
@@ -206,7 +206,7 @@ class UpdateCategoryHandler:
             category.position = command.position
             category.is_visible = command.is_visible
             await self.uow.commit()
-            return CategoryDTO(category.id, category.name, category.slug)
+            return CategoryDTO(category.id, category.name, category.slug, category.image_url)
 
 
 class DeleteCategoryHandler:

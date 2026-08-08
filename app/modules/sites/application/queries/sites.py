@@ -89,7 +89,7 @@ class GetPublicBusinessHandler:
 
     async def __call__(self, query: GetPublicBusiness) -> BusinessDTO:
         business = await SqlAlchemyBusinessRepository(self.session).get_by_slug(query.business_slug)
-        if business is None or not business.is_published or business.archived_at is not None:
+        if business is None or business.archived_at is not None:
             raise NotFoundError("Business not found")
         site = await self.session.scalar(
             select(BusinessSiteModel).where(BusinessSiteModel.business_id == business.id)

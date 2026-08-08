@@ -1,5 +1,5 @@
 from app.core.config import settings
-from app.modules.images.api.routes import has_valid_signature
+from app.modules.images.application.commands import has_valid_signature
 from app.modules.images.infrastructure.storage import SupabaseImageStorage
 
 

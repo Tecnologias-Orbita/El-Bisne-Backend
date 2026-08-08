@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.main import app
 from app.modules.auth.infrastructure.models.user import UserModel
+from app.modules.images.infrastructure.storage import SupabaseImageStorage
 
 TEST_DATABASE_URL = (
     make_url(settings.database_url)
@@ -64,7 +65,11 @@ def isolated_e2e_database() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def clean_database() -> Iterator[None]:
+def clean_database(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    async def skip_storage_cleanup(_storage: SupabaseImageStorage, _prefix: str) -> None:
+        return None
+
+    monkeypatch.setattr(SupabaseImageStorage, "delete_prefix", skip_storage_cleanup)
     run_async(reset_database())
     yield
 

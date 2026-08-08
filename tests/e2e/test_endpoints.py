@@ -275,7 +275,9 @@ def test_business_always_includes_fixed_template_information(client: TestClient)
         "logo_url": "https://example.com/logo.png",
     }
 
-    assert client.get("/api/v1/public/businesses/sitio-demo").status_code == 404
+    maintenance = client.get("/api/v1/public/businesses/sitio-demo")
+    assert maintenance.status_code == 200
+    assert maintenance.json()["is_published"] is False
     published = publish_business(client, headers, business)
     public = client.get("/api/v1/public/businesses/sitio-demo")
     assert public.status_code == 200

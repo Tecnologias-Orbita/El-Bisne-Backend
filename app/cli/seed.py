@@ -33,6 +33,10 @@ OWNER_EMAIL = "owner.demo@elbisne.dev"
 OWNER_PASSWORD = "Demo123!"
 SECOND_OWNER_EMAIL = "dulce.alma@elbisne.dev"
 SECOND_OWNER_PASSWORD = "Dulce123!"
+THIRD_OWNER_EMAIL = "horizonte@elbisne.dev"
+THIRD_OWNER_PASSWORD = "Horizonte123!"
+FOURTH_OWNER_EMAIL = "proximo@elbisne.dev"
+FOURTH_OWNER_PASSWORD = "Proximo123!"
 
 UNSPLASH = "https://images.unsplash.com/"
 IMAGES = {
@@ -64,6 +68,7 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
             "Un espacio cálido para compartir sabores cubanos y propuestas contemporáneas."
         ),
         "sells_online": False,
+        "is_published": True,
         "contact_phone": "+5351111111",
         "platform_category": "restaurantes",
         "hero": IMAGES["burger"],
@@ -168,6 +173,7 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
             "Preparamos dulces, panes y encargos con ingredientes seleccionados."
         ),
         "sells_online": True,
+        "is_published": True,
         "contact_phone": "+5352222222",
         "platform_category": "dulces-panaderia",
         "hero": IMAGES["cake"],
@@ -247,7 +253,7 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
         ),
     },
     {
-        "owner_email": OWNER_EMAIL,
+        "owner_email": THIRD_OWNER_EMAIL,
         "name": "Estudio Horizonte",
         "slug": "estudio-horizonte",
         "description": (
@@ -255,6 +261,7 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
             "Compra piezas listas o conversa con el equipo para preparar una sesión a tu medida."
         ),
         "sells_online": True,
+        "is_published": True,
         "contact_phone": "+5351111111",
         "platform_category": "cafeterias",
         "hero": IMAGES["latte"],
@@ -297,11 +304,12 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
         ),
     },
     {
-        "owner_email": SECOND_OWNER_EMAIL,
+        "owner_email": FOURTH_OWNER_EMAIL,
         "name": "Próximo Bisne",
         "slug": "proximo-bisne",
         "description": "Un negocio preparando su presencia digital.",
         "sells_online": False,
+        "is_published": False,
         "contact_phone": "+5352222222",
         "platform_category": "dulces-panaderia",
         "hero": IMAGES["bread"],
@@ -386,7 +394,7 @@ async def _upsert_business(
             timezone="America/Havana",
             contact_email=spec["owner_email"],
             contact_phone=spec["contact_phone"],
-            is_published=True,
+            is_published=spec["is_published"],
             platform_category_id=platform_categories[spec["platform_category"]].id,
         )
         session.add(business)
@@ -398,7 +406,7 @@ async def _upsert_business(
     business.timezone = "America/Havana"
     business.contact_email = spec["owner_email"]
     business.contact_phone = spec["contact_phone"]
-    business.is_published = True
+    business.is_published = spec["is_published"]
     business.archived_at = None
     business.platform_category_id = platform_categories[spec["platform_category"]].id
 
@@ -563,6 +571,18 @@ async def seed() -> None:
                 SECOND_OWNER_PASSWORD,
                 "Laura García",
             ),
+            THIRD_OWNER_EMAIL: await _upsert_user(
+                session,
+                THIRD_OWNER_EMAIL,
+                THIRD_OWNER_PASSWORD,
+                "Carlos Hernández",
+            ),
+            FOURTH_OWNER_EMAIL: await _upsert_user(
+                session,
+                FOURTH_OWNER_EMAIL,
+                FOURTH_OWNER_PASSWORD,
+                "Ana Rodríguez",
+            ),
         }
 
         payment_settings = await session.get(PlatformPaymentSettingsModel, 1)
@@ -592,6 +612,8 @@ async def seed() -> None:
     print(f"Platform admin: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
     print(f"Demo owner: {OWNER_EMAIL} / {OWNER_PASSWORD}")
     print(f"Dulce Alma owner: {SECOND_OWNER_EMAIL} / {SECOND_OWNER_PASSWORD}")
+    print(f"Estudio Horizonte owner: {THIRD_OWNER_EMAIL} / {THIRD_OWNER_PASSWORD}")
+    print(f"Próximo Bisne owner: {FOURTH_OWNER_EMAIL} / {FOURTH_OWNER_PASSWORD}")
     print(
         "Public demos: /bisne/cafe-bisne-demo, /bisne/dulce-alma, "
         "/bisne/estudio-horizonte and /bisne/proximo-bisne"

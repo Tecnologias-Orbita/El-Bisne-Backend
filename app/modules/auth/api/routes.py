@@ -14,7 +14,11 @@ from app.modules.auth.application.commands.auth import (
     RegisterUser,
 )
 from app.modules.auth.application.dto.auth import BusinessOnboardingDTO, UserDTO
-from app.modules.auth.application.queries.users import GetCurrentUser
+from app.modules.auth.application.queries.users import (
+    CheckOnboardingAvailability,
+    GetCurrentUser,
+    OnboardingAvailabilityDTO,
+)
 from app.modules.billing.domain.plans import SubscriptionPlan
 from app.shared.application.cqrs import CommandBus, QueryBus
 from app.shared.infrastructure.dependencies import get_command_bus, get_query_bus
@@ -73,6 +77,18 @@ async def register(
     body: RegisterRequest, bus: Annotated[CommandBus, Depends(get_command_bus)]
 ) -> UserDTO:
     return await bus.dispatch(RegisterUser(**body.model_dump()))
+
+
+@router.get("/onboarding-availability", response_model=OnboardingAvailabilityDTO)
+async def onboarding_availability(
+    bus: Annotated[QueryBus, Depends(get_query_bus)],
+    email: EmailStr | None = None,
+    slug: str | None = None,
+    transaction_number: str | None = None,
+) -> OnboardingAvailabilityDTO:
+    return await bus.dispatch(
+        CheckOnboardingAvailability(str(email) if email else None, slug, transaction_number)
+    )
 
 
 @router.post(
