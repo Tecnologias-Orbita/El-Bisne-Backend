@@ -33,6 +33,9 @@ class CreateCategory:
     business_id: uuid.UUID
     name: str
     slug: str
+    description: str | None = None
+    position: int = 0
+    is_visible: bool = True
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,9 @@ class CreateProduct:
     description: str | None = None
     image_url: str | None = None
     is_published: bool = False
+    is_available: bool = True
+    track_inventory: bool = False
+    stock_quantity: int | None = None
 
 
 class CreateCategoryHandler:
@@ -64,7 +70,12 @@ class CreateCategoryHandler:
             if await repo.category_slug_exists(command.business_id, slug):
                 raise ConflictError("Category slug already exists")
             category = CategoryModel(
-                business_id=command.business_id, name=command.name.strip(), slug=slug
+                business_id=command.business_id,
+                name=command.name.strip(),
+                slug=slug,
+                description=command.description,
+                position=command.position,
+                is_visible=command.is_visible,
             )
             await repo.add_category(category)
             await self.uow.commit()
@@ -106,7 +117,10 @@ class CreateProductHandler:
                 price=command.price,
                 currency=command.currency.upper(),
                 image_url=command.image_url,
+                is_available=command.is_available,
                 is_published=command.is_published,
+                track_inventory=command.track_inventory,
+                stock_quantity=command.stock_quantity,
             )
             await repo.add_product(product)
             await self.uow.commit()

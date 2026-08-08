@@ -161,6 +161,8 @@ class AddBusinessMember:
     actor_user_id: uuid.UUID
     business_id: uuid.UUID
     email: str
+    full_name: str
+    password: str
     role: str
 
 
@@ -279,9 +281,19 @@ class AddBusinessMemberHandler:
         async with self.uow:
             repo = SqlAlchemyBusinessRepository(self.uow.session)
             await _require_admin(repo, command.business_id, command.actor_user_id)
-            user = await SqlAlchemyUserRepository(self.uow.session).get_by_email(command.email)
+            users = SqlAlchemyUserRepository(self.uow.session)
+            user = await users.get_by_email(command.email)
             if user is None:
-                raise NotFoundError("User with this email not found")
+                from app.modules.auth.infrastructure.models.user import UserModel
+                from app.shared.infrastructure.security import hash_password
+
+                user = UserModel(
+                    email=command.email.lower(),
+                    full_name=command.full_name.strip(),
+                    password_hash=hash_password(command.password),
+                )
+                await users.add(user)
+                await self.uow.session.flush()
             if await repo.get_member(command.business_id, user.id):
                 raise ConflictError("User is already a member")
             await repo.add_member(

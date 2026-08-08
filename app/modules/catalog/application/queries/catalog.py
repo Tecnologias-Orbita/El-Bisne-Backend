@@ -94,6 +94,9 @@ def _product_dto(product: object) -> ProductDTO:
         product.currency,
         product.image_url,
         product.is_available,
+        product.is_published,
+        product.track_inventory,
+        product.stock_quantity,
     )
 
 
@@ -104,7 +107,18 @@ class ListCategoriesHandler:
     async def __call__(self, query: ListCategories) -> list[CategoryDTO]:
         await _require_member(self.session, query.business_id, query.actor_user_id)
         items = await SqlAlchemyCatalogRepository(self.session).list_categories(query.business_id)
-        return [CategoryDTO(item.id, item.name, item.slug, item.image_url) for item in items]
+        return [
+            CategoryDTO(
+                item.id,
+                item.name,
+                item.slug,
+                item.image_url,
+                item.description,
+                item.position,
+                item.is_visible,
+            )
+            for item in items
+        ]
 
 
 class ListProductsHandler:

@@ -65,6 +65,8 @@ class UpdateBusinessRequest(BaseModel):
 
 class MemberRequest(BaseModel):
     email: EmailStr
+    full_name: str = Field(min_length=2, max_length=160)
+    password: str = Field(min_length=8, max_length=128)
     role: str
 
 
@@ -143,7 +145,11 @@ async def add_member(
     user: Annotated[UserDTO, Depends(get_current_user)],
     bus: Annotated[CommandBus, Depends(get_command_bus)],
 ) -> Response:
-    await bus.dispatch(AddBusinessMember(user.id, business_id, str(body.email), body.role))
+    await bus.dispatch(
+        AddBusinessMember(
+            user.id, business_id, str(body.email), body.full_name, body.password, body.role
+        )
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

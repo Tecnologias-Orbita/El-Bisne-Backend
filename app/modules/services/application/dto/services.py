@@ -16,3 +16,4 @@ class ServiceDTO:
     duration_minutes: int | None
     image_url: str | None
     is_available: bool
+    is_published: bool = False

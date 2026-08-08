@@ -36,6 +36,7 @@ class ServiceRequest(BaseModel):
     duration_minutes: int | None = Field(default=None, ge=1)
     image_url: HttpUrl | None = None
     is_published: bool = False
+    is_available: bool = True
 
     @model_validator(mode="after")
     def price_requires_currency(self) -> "ServiceRequest":
@@ -45,7 +46,7 @@ class ServiceRequest(BaseModel):
 
 
 class UpdateServiceRequest(ServiceRequest):
-    is_available: bool = True
+    pass
 
 
 def payload(body: ServiceRequest) -> dict[str, object]:

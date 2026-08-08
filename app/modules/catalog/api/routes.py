@@ -32,6 +32,9 @@ public_router = APIRouter(prefix="/public/businesses", tags=["public"])
 class CreateCategoryRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     slug: str = Field(min_length=3, max_length=100)
+    description: str | None = None
+    position: int = Field(default=0, ge=0)
+    is_visible: bool = True
 
 
 class CreateProductRequest(BaseModel):
@@ -44,6 +47,9 @@ class CreateProductRequest(BaseModel):
     description: str | None = None
     image_url: HttpUrl | None = None
     is_published: bool = False
+    is_available: bool = True
+    track_inventory: bool = False
+    stock_quantity: int | None = Field(default=None, ge=0)
 
 
 class UpdateCategoryRequest(BaseModel):

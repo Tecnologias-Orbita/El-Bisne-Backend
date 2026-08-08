@@ -9,6 +9,9 @@ class CategoryDTO:
     name: str
     slug: str
     image_url: str | None
+    description: str | None = None
+    position: int = 0
+    is_visible: bool = True
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,9 @@ class ProductDTO:
     currency: str
     image_url: str | None
     is_available: bool
+    is_published: bool = False
+    track_inventory: bool = False
+    stock_quantity: int | None = None
 
 
 @dataclass(frozen=True)

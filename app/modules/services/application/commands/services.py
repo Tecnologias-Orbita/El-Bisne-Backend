@@ -36,13 +36,13 @@ class CreateService:
     currency: str | None = None
     duration_minutes: int | None = None
     image_url: str | None = None
+    is_available: bool = True
     is_published: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
 class UpdateService(CreateService):
     service_id: uuid.UUID
-    is_available: bool = True
 
 
 @dataclass(frozen=True)
@@ -65,6 +65,7 @@ def service_dto(service: ServiceModel) -> ServiceDTO:
         service.duration_minutes,
         service.image_url,
         service.is_available,
+        service.is_published,
     )
 
 
@@ -110,6 +111,7 @@ class CreateServiceHandler:
                 currency=command.currency.upper() if command.currency else None,
                 duration_minutes=command.duration_minutes,
                 image_url=command.image_url,
+                is_available=command.is_available,
                 is_published=command.is_published,
             )
             await repo.add(service)
