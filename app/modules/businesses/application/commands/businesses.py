@@ -21,6 +21,7 @@ from app.modules.businesses.infrastructure.models.business import (
 from app.modules.businesses.infrastructure.repositories.sqlalchemy_businesses import (
     SqlAlchemyBusinessRepository,
 )
+from app.modules.images.infrastructure.storage import SupabaseImageStorage
 from app.modules.platform_categories.infrastructure.models.platform_category import (
     PlatformCategoryModel,
 )
@@ -39,7 +40,7 @@ class CreateBusiness:
     actor_user_id: uuid.UUID
     name: str
     slug: str
-    business_type: str
+    sells_online: bool
     transaction_number: str
     plan: SubscriptionPlan
     phone_number: str
@@ -84,7 +85,7 @@ class CreateBusinessHandler:
             business = BusinessModel(
                 name=command.name.strip(),
                 slug=slug,
-                business_type=command.business_type,
+                sells_online=command.sells_online,
                 description=command.description,
                 currency=command.currency.upper(),
                 timezone=command.timezone,
@@ -121,7 +122,7 @@ class CreateBusinessHandler:
                 business.name,
                 business.slug,
                 business.description,
-                business.business_type,
+                business.sells_online,
                 business.currency,
                 business.timezone,
                 business.contact_email,
@@ -138,7 +139,7 @@ class UpdateBusiness:
     business_id: uuid.UUID
     name: str
     description: str | None
-    business_type: str
+    sells_online: bool
     currency: str
     timezone: str
     contact_email: str | None
@@ -184,7 +185,7 @@ def _business_dto(business: BusinessModel, site: BusinessSiteModel) -> BusinessD
         business.name,
         business.slug,
         business.description,
-        business.business_type,
+        business.sells_online,
         business.currency,
         business.timezone,
         business.contact_email,
@@ -226,7 +227,7 @@ class UpdateBusinessHandler:
                 raise NotFoundError("Business not found")
             business.name = command.name.strip()
             business.description = command.description
-            business.business_type = command.business_type
+            business.sells_online = command.sells_online
             business.currency = command.currency.upper()
             business.timezone = command.timezone
             business.contact_email = command.contact_email
@@ -262,6 +263,7 @@ class ArchiveBusinessHandler:
             business = await repo.get_by_id(command.business_id)
             if business is None:
                 raise NotFoundError("Business not found")
+            await SupabaseImageStorage().delete_prefix(f"businesses/{business.id}")
             business.archived_at = datetime.now(UTC)
             business.is_published = False
             await self.uow.commit()

@@ -1,0 +1,145 @@
+IMPLEMENTACION DE ALMACENAMIENTO DE IMAGENES CON SUPABASE STORAGE
+
+Stack: - Frontend: Next.js - Backend: FastAPI - Base de datos: Supabase
+PostgreSQL - Almacenamiento de archivos: Supabase Storage
+
+OBJETIVO
+
+Los usuarios deben poder subir imagenes. FastAPI sera responsable de
+recibir las imagenes, almacenarlas en Supabase Storage y devolver la URL
+publica completa para guardarla en la base de datos.
+
+ARQUITECTURA
+
+Usuario | v Next.js | | multipart/form-data v FastAPI | | Supabase SDK v
+Supabase Storage | | URL publica v Base de datos
+
+CONFIGURACION SUPABASE
+
+URL base del proyecto:
+
+https://grejlkqaqqvygendoko.supabase.co
+
+IMPORTANTE:
+
+No utilizar como SUPABASE_URL:
+
+https://grejlkqaqqvygendoko.supabase.co/rest/v1/
+
+Esa URL pertenece a la Data API REST.
+
+La URL correcta para el cliente Supabase es:
+
+https://grejlkqaqqvygendoko.supabase.co
+
+VARIABLES DE ENTORNO FASTAPI
+
+Crear:
+
+SUPABASE_URL=https://grejlkqaqqvygendoko.supabase.co
+
+SUPABASE_KEY=sb_secret_xxxxxxxxx
+
+La clave debe ser la Secret Key:
+
+sb_secret_…
+
+Nunca utilizar la publishable key en el backend.
+
+SUPABASE STORAGE
+
+Crear un bucket:
+
+app-images
+
+Configuracion:
+
+Public bucket = true
+
+Estructura recomendada:
+
+app-images/ users/ {user_id}/ imagen.png
+
+DEPENDENCIA BACKEND
+
+Instalar:
+
+pip install supabase
+
+CLIENTE SUPABASE EN FASTAPI
+
+Crear cliente usando:
+
+from supabase import create_client
+
+supabase = create_client( SUPABASE_URL, SUPABASE_KEY )
+
+ENDPOINT DE SUBIDA
+
+Crear endpoint:
+
+POST /images/upload
+
+Debe aceptar:
+
+multipart/form-data
+
+Campo:
+
+file
+
+Proceso del endpoint:
+
+1.  Recibir archivo.
+2.  Validar extension y tipo MIME.
+3.  Validar tamaño maximo.
+4.  Subir archivo al bucket app-images.
+5.  Obtener URL publica.
+6.  Retornar URL.
+7.  Guardar URL completa en la tabla correspondiente.
+
+GUARDADO EN BASE DE DATOS
+
+No crear una tabla adicional para imagenes.
+
+Guardar directamente la URL completa en la tabla existente.
+
+Ejemplo:
+
+users
+
+id username avatar_url
+
+avatar_url:
+
+https://grejlkqaqqvygendoko.supabase.co/storage/v1/object/public/app-images/users/123/avatar.png
+
+FRONTEND NEXT.JS
+
+Next.js NO debe comunicarse directamente con Supabase Storage.
+
+La comunicacion debe ser:
+
+Next.js -> FastAPI -> Supabase Storage
+
+El frontend solamente envia el archivo al backend.
+
+VALIDACIONES
+
+Tipos permitidos:
+
+image/jpeg image/png image/webp
+
+Tamaño maximo recomendado:
+
+5MB
+
+RESULTADO FINAL ESPERADO
+
+1.  Usuario selecciona imagen en Next.js.
+2.  Next.js envia imagen a FastAPI.
+3.  FastAPI valida el archivo.
+4.  FastAPI sube imagen a Supabase Storage.
+5.  Supabase devuelve URL publica.
+6.  FastAPI guarda URL completa en la base de datos.
+7.  Next.js utiliza esa URL para mostrar la imagen.

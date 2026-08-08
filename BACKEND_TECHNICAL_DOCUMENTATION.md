@@ -126,7 +126,7 @@ No requieren JWT:
 | `name` | string | Nombre comercial. |
 | `slug` | string | Identificador legible usado en URLs públicas. |
 | `description` | string/null | Presentación pública del negocio. |
-| `business_type` | string | Clasificación: restaurante, barbería, etc. |
+| `sells_online` | boolean | Activa carrito, checkout y creación de pedidos. |
 | `currency` | string(3) | Moneda de catálogo y pedidos. |
 | `timezone` | string | Interpretación local de horarios y estadísticas. |
 | `contact_email` | email/null | Destino de contacto/notificaciones. |
@@ -146,7 +146,6 @@ No requieren JWT:
 | `category_id` | UUID/null | Categoría opcional dentro del mismo negocio. |
 | `name` | string | Nombre mostrado. |
 | `slug` | string | URL legible, única dentro del negocio. |
-| `product_type` | `product`/`service` | Distingue bienes de servicios. |
 | `description` | string/null | Información comercial. |
 | `price` | decimal | Precio exacto sin errores de punto flotante. |
 | `currency` | string(3) | Moneda del precio. |
@@ -283,7 +282,7 @@ El slug es único solo dentro de su negocio.
 
 | Método y path | Permiso | Entrada | Resultado |
 |---|---|---|---|
-| `POST /businesses/{business_id}/catalog/products` | `MANAGE_CONTENT` | `name`, `slug`, `product_type`, `price`, `currency`, categoría/descripcion/imagen opcionales, `is_published` | `201 ProductDTO`. |
+| `POST /businesses/{business_id}/catalog/products` | `MANAGE_CONTENT` | `name`, `slug`, `price`, `currency`, categoría/descripcion/imagen opcionales, `is_published` | `201 ProductDTO`. |
 | `GET /businesses/{business_id}/catalog/products` | `VIEW` | — | Productos no archivados. |
 | `GET /businesses/{business_id}/catalog/products/{product_id}` | `VIEW` | UUID | `200 ProductDTO`. |
 | `PUT /businesses/{business_id}/catalog/products/{product_id}` | `MANAGE_CONTENT` | Payload completo; añade disponibilidad e inventario | `200 ProductDTO`. |
@@ -291,7 +290,7 @@ El slug es único solo dentro de su negocio.
 | `GET /public/businesses/{business_slug}/catalog` | Pública | slug | `CatalogDTO` con productos publicados y no archivados. |
 
 La categoría, si se proporciona, debe pertenecer al mismo negocio. Precio no
-puede ser negativo y `product_type` debe ser `product` o `service`.
+puede ser negativo. Los servicios se administran como recursos independientes.
 
 ### Pedidos
 
@@ -418,7 +417,7 @@ Tenant y raíz de los datos de un emprendimiento.
 | `name` | varchar(160) | No | Nombre comercial. |
 | `slug` | varchar(100), unique, index | No | URL pública estable; actualmente único global. |
 | `description` | text | Sí | Presentación pública extensa. |
-| `business_type` | varchar(50) | No | Clasificación comercial del negocio. |
+| `sells_online` | boolean, default false | No | Habilita ventas y pedidos web. |
 | `currency` | varchar(3), default USD | No | Moneda base para precios y pedidos. |
 | `timezone` | varchar(64), default America/Havana | No | Cálculo local de horarios y reportes. |
 | `contact_email` | varchar(320) | Sí | Contacto y futuro destino de notificaciones. |
@@ -478,13 +477,12 @@ Además de la categoría propia del negocio (`category_id`), cada producto puede
 guardar `platform_category_id`, FK nullable hacia `platform_categories` con
 `ON DELETE SET NULL`.
 
-Producto o servicio vendible.
+Producto vendible.
 
 | Columna | Tipo | Nula | Motivo |
 |---|---|---:|---|
 | `business_id` | UUID FK businesses, index | No | Propietario/tenant. |
 | `category_id` | UUID FK categories | Sí | Clasificación opcional; la aplicación valida mismo tenant. |
-| `product_type` | varchar(20), default product | No | `product` o `service`. |
 | `name` | varchar(160) | No | Nombre comercial. |
 | `slug` | varchar(120) | No | Identificador público dentro del negocio. |
 | `description` | text | Sí | Contenido comercial. |

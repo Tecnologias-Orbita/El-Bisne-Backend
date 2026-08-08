@@ -33,7 +33,7 @@ class GetPublicCatalogHandler:
         repository = SqlAlchemyCatalogRepository(self.session)
         products = await repository.list_public_products(business.id)
         categories = [
-            CategoryDTO(category.id, category.name, category.slug)
+            CategoryDTO(category.id, category.name, category.slug, category.image_url)
             for category in await repository.list_categories(business.id)
             if category.is_visible
         ]
@@ -44,7 +44,6 @@ class GetPublicCatalogHandler:
                 product.platform_category_id,
                 product.name,
                 product.slug,
-                product.product_type,
                 product.description,
                 product.price,
                 product.currency,
@@ -90,7 +89,6 @@ def _product_dto(product: object) -> ProductDTO:
         product.platform_category_id,
         product.name,
         product.slug,
-        product.product_type,
         product.description,
         product.price,
         product.currency,
@@ -106,7 +104,7 @@ class ListCategoriesHandler:
     async def __call__(self, query: ListCategories) -> list[CategoryDTO]:
         await _require_member(self.session, query.business_id, query.actor_user_id)
         items = await SqlAlchemyCatalogRepository(self.session).list_categories(query.business_id)
-        return [CategoryDTO(item.id, item.name, item.slug) for item in items]
+        return [CategoryDTO(item.id, item.name, item.slug, item.image_url) for item in items]
 
 
 class ListProductsHandler:

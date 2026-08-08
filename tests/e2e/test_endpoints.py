@@ -12,7 +12,7 @@ def create_business(client: TestClient, headers: dict[str, str], slug: str = "ca
         json={
             "name": "Café Sol",
             "slug": slug,
-            "business_type": "restaurant",
+            "sells_online": True,
             "transaction_number": f"txn-{slug}",
             "plan": "basic",
             "phone_number": "+5355555555",
@@ -39,7 +39,7 @@ def publish_business(client: TestClient, headers: dict[str, str], business: dict
         json={
             "name": business["name"],
             "description": business["description"],
-            "business_type": business["business_type"],
+            "sells_online": business["sells_online"],
             "currency": business["currency"],
             "timezone": business["timezone"],
             "contact_email": business["contact_email"],
@@ -129,7 +129,7 @@ def test_platform_billing_and_public_business_onboarding(client: TestClient) -> 
             "full_name": "Nueva Dueña",
             "business_name": "Nuevo negocio",
             "slug": "nuevo-negocio",
-            "business_type": "services",
+            "sells_online": False,
             "currency": "CUP",
             "transaction_number": "transfer-0001",
             "plan": "premium",
@@ -221,7 +221,7 @@ def test_business_member_crud_and_role_protection(client: TestClient) -> None:
         json={
             "name": "Café Sol Actualizado",
             "description": "Nueva descripción",
-            "business_type": "restaurant",
+            "sells_online": False,
             "currency": "CUP",
             "timezone": "America/Havana",
             "contact_email": "owner@example.com",
@@ -320,7 +320,6 @@ def test_catalog_crud_and_public_catalog(client: TestClient) -> None:
         json={
             "name": "Café cubano",
             "slug": "cafe-cubano",
-            "product_type": "product",
             "price": "2.50",
             "currency": "USD",
             "category_id": category_id,
@@ -338,7 +337,6 @@ def test_catalog_crud_and_public_catalog(client: TestClient) -> None:
             json={
                 "name": "Café cubano doble",
                 "slug": "cafe-cubano-doble",
-                "product_type": "product",
                 "price": "4.00",
                 "currency": "USD",
                 "category_id": category_id,
@@ -398,7 +396,7 @@ def test_platform_categories_can_classify_businesses_and_products(client: TestCl
         json={
             "name": business["name"],
             "description": business["description"],
-            "business_type": business["business_type"],
+            "sells_online": business["sells_online"],
             "currency": business["currency"],
             "timezone": business["timezone"],
             "contact_email": business["contact_email"],
@@ -440,6 +438,60 @@ def test_platform_categories_can_classify_businesses_and_products(client: TestCl
     )
 
 
+def test_services_are_public_but_cannot_be_ordered(client: TestClient) -> None:
+    _, headers = register_and_login(client, "services@example.com")
+    business = create_business(client, headers, "servicios-demo")
+    service_url = f"/api/v1/businesses/{business['id']}/services"
+    created = client.post(
+        service_url,
+        headers=headers,
+        json={
+            "name": "Sesión fotográfica",
+            "slug": "sesion-fotografica",
+            "description": "Retratos profesionales",
+            "price": "1200.00",
+            "currency": "CUP",
+            "duration_minutes": 60,
+            "is_published": True,
+        },
+    )
+    assert created.status_code == 201, created.text
+    service = created.json()
+    assert service["duration_minutes"] == 60
+    publish_business(client, headers, business)
+    public = client.get("/api/v1/public/businesses/servicios-demo/services")
+    assert public.status_code == 200
+    assert [item["id"] for item in public.json()] == [service["id"]]
+    rejected = client.post(
+        "/api/v1/public/businesses/servicios-demo/orders",
+        headers={"Idempotency-Key": "service-order"},
+        json={
+            "customer_name": "Cliente",
+            "customer_phone": "+5355555555",
+            "items": [{"product_id": service["id"], "quantity": 1}],
+        },
+    )
+    assert rejected.status_code == 422
+
+
+def test_business_without_online_sales_rejects_orders(client: TestClient) -> None:
+    _, headers = register_and_login(client, "offline@example.com")
+    business = create_business(client, headers, "offline-demo")
+    business["sells_online"] = False
+    publish_business(client, headers, business)
+    response = client.post(
+        "/api/v1/public/businesses/offline-demo/orders",
+        headers={"Idempotency-Key": "offline-order"},
+        json={
+            "customer_name": "Cliente",
+            "customer_phone": "+5355555555",
+            "items": [{"product_id": str(uuid.uuid4()), "quantity": 1}],
+        },
+    )
+    assert response.status_code == 422
+    assert "does not accept online orders" in response.json()["detail"]
+
+
 def test_order_idempotency_status_and_analytics(client: TestClient) -> None:
     _, headers = register_and_login(client, "orders@example.com")
     business = create_business(client, headers, "pedidos-demo")
@@ -449,9 +501,8 @@ def test_order_idempotency_status_and_analytics(client: TestClient) -> None:
         f"{catalog_url}/products",
         headers=headers,
         json={
-            "name": "Servicio",
-            "slug": "servicio",
-            "product_type": "service",
+            "name": "Producto",
+            "slug": "producto",
             "price": "10.00",
             "currency": "USD",
             "is_published": True,

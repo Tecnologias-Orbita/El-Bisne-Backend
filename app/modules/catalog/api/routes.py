@@ -37,7 +37,6 @@ class CreateCategoryRequest(BaseModel):
 class CreateProductRequest(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     slug: str = Field(min_length=3, max_length=120)
-    product_type: str = "product"
     price: Decimal = Field(ge=0, decimal_places=2)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     category_id: uuid.UUID | None = None
@@ -61,7 +60,6 @@ class UpdateProductRequest(BaseModel):
     platform_category_id: uuid.UUID | None = None
     name: str = Field(min_length=1, max_length=160)
     slug: str = Field(min_length=3, max_length=120)
-    product_type: str
     description: str | None = None
     price: Decimal = Field(ge=0, decimal_places=2)
     currency: str = Field(min_length=3, max_length=3)

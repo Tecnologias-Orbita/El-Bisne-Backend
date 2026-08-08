@@ -14,7 +14,7 @@ class BusinessDTO:
     name: str
     slug: str
     description: str | None
-    business_type: str
+    sells_online: bool
     currency: str
     timezone: str
     contact_email: str | None

@@ -15,6 +15,7 @@ from app.modules.platform_categories.application.dto.platform_category import Pl
 from app.modules.platform_categories.infrastructure.models.platform_category import (
     PlatformCategoryModel,
 )
+from app.modules.services.infrastructure.models.service import ServiceModel
 from app.modules.sites.infrastructure.models.site import BusinessSiteModel
 from app.shared.domain.exceptions import NotFoundError
 
@@ -36,7 +37,7 @@ class DiscoveryBusinessDTO:
     name: str
     slug: str
     description: str | None
-    business_type: str
+    sells_online: bool
     platform_category_id: uuid.UUID | None
     hero_image_url: str | None
     logo_url: str | None
@@ -59,10 +60,27 @@ class DiscoveryProductDTO:
 
 
 @dataclass(frozen=True)
+class DiscoveryServiceDTO:
+    id: uuid.UUID
+    business_id: uuid.UUID
+    business_name: str
+    business_slug: str
+    platform_category_id: uuid.UUID | None
+    name: str
+    slug: str
+    description: str | None
+    price: Decimal | None
+    currency: str | None
+    duration_minutes: int | None
+    image_url: str | None
+
+
+@dataclass(frozen=True)
 class PlatformDiscoveryDTO:
     categories: list[PlatformCategoryDTO]
     businesses: list[DiscoveryBusinessDTO]
     products: list[DiscoveryProductDTO]
+    services: list[DiscoveryServiceDTO]
 
 
 class GetPublicBusinessHandler:
@@ -81,7 +99,7 @@ class GetPublicBusinessHandler:
             business.name,
             business.slug,
             business.description,
-            business.business_type,
+            business.sells_online,
             business.currency,
             business.timezone,
             business.contact_email,
@@ -159,6 +177,30 @@ class DiscoverPlatformHandler:
             (await self.session.execute(product_statement.order_by(ProductModel.name))).all()
         )
 
+        service_statement = (
+            select(ServiceModel, BusinessModel)
+            .join(BusinessModel, BusinessModel.id == ServiceModel.business_id)
+            .where(
+                ServiceModel.is_published.is_(True),
+                ServiceModel.is_available.is_(True),
+                ServiceModel.archived_at.is_(None),
+                BusinessModel.is_published.is_(True),
+                BusinessModel.archived_at.is_(None),
+            )
+        )
+        if query.platform_category_id:
+            service_statement = service_statement.where(
+                ServiceModel.platform_category_id == query.platform_category_id
+            )
+        if query.search:
+            term = f"%{query.search.strip()}%"
+            service_statement = service_statement.where(
+                or_(ServiceModel.name.ilike(term), ServiceModel.description.ilike(term))
+            )
+        service_rows = list(
+            (await self.session.execute(service_statement.order_by(ServiceModel.name))).all()
+        )
+
         return PlatformDiscoveryDTO(
             categories=[
                 PlatformCategoryDTO(
@@ -176,7 +218,7 @@ class DiscoverPlatformHandler:
                     business.name,
                     business.slug,
                     business.description,
-                    business.business_type,
+                    business.sells_online,
                     business.platform_category_id,
                     sites_by_business[business.id].hero_image_url
                     if business.id in sites_by_business
@@ -203,5 +245,22 @@ class DiscoverPlatformHandler:
                     product.is_available,
                 )
                 for product, business in product_rows
+            ],
+            services=[
+                DiscoveryServiceDTO(
+                    service.id,
+                    business.id,
+                    business.name,
+                    business.slug,
+                    service.platform_category_id,
+                    service.name,
+                    service.slug,
+                    service.description,
+                    service.price,
+                    service.currency,
+                    service.duration_minutes,
+                    service.image_url,
+                )
+                for service, business in service_rows
             ],
         )

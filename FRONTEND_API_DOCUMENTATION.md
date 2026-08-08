@@ -49,7 +49,7 @@ y los colores son fijos en el frontend para todos los negocios.
   "name": "Café Sol",
   "slug": "cafe-sol",
   "description": "Café y repostería artesanal",
-  "business_type": "restaurant",
+  "sells_online": false,
   "currency": "USD",
   "timezone": "America/Havana",
   "contact_email": "contacto@cafesol.com",
@@ -177,7 +177,7 @@ Bearer. Crea negocio, owner, extensión visual y pago de suscripción.
 {
   "name": "Café Sol",
   "slug": "cafe-sol",
-  "business_type": "restaurant",
+  "sells_online": false,
   "transaction_number": "transfer-0002",
   "plan": "premium",
   "phone_number": "+5351111111",
@@ -194,7 +194,7 @@ Bearer. Crea negocio, owner, extensión visual y pago de suscripción.
 }
 ```
 
-Requeridos: `name`, `slug`, `business_type`, `transaction_number`, `plan`,
+Requeridos: `name`, `slug`, `transaction_number`, `plan`,
 `phone_number`, `execution_date`, `expiration_date` y `amount_paid`.
 Defaults: `currency=USD`, `timezone=America/Havana`, publicación `false`.
 Contacto e imágenes aceptan `null`. `201`: `BusinessDTO`. Slug ocupado: `409`.
@@ -217,7 +217,7 @@ Bearer y permiso para configurar negocio. Es un `PUT` completo:
 {
   "name": "Café Sol",
   "description": "Descripción actualizada",
-  "business_type": "restaurant",
+  "sells_online": false,
   "currency": "USD",
   "timezone": "America/Havana",
   "contact_email": "contacto@cafesol.com",
@@ -228,7 +228,7 @@ Bearer y permiso para configurar negocio. Es un `PUT` completo:
 }
 ```
 
-Requeridos: `name`, `business_type`, `currency`, `timezone`. `200`:
+Requeridos: `name`, `currency`, `timezone`. `sells_online` controla carrito y pedidos. `200`:
 `BusinessDTO`. El slug no se puede cambiar aquí.
 
 Importante: omitir `is_published` lo cambia a `false`; omitir imágenes las
@@ -329,7 +329,6 @@ Permiso de contenido. `204`; `409` si contiene productos.
   "category_id": "uuid-or-null",
   "name": "Café cubano",
   "slug": "cafe-cubano",
-  "product_type": "product",
   "description": "Café fuerte",
   "price": "2.50",
   "currency": "USD",
@@ -344,7 +343,6 @@ Permiso de contenido. `204`; `409` si contiene productos.
 {
   "name": "Café cubano",
   "slug": "cafe-cubano",
-  "product_type": "product",
   "price": "2.50",
   "currency": "USD",
   "category_id": null,
@@ -354,9 +352,8 @@ Permiso de contenido. `204`; `409` si contiene productos.
 }
 ```
 
-Permiso de contenido. Requeridos: `name`, `slug`, `price`. `product_type`:
-`product` o `service`; precio no negativo con máximo dos decimales. Defaults:
-`product_type=product`, `currency=USD`, publicación `false`. `201`:
+Permiso de contenido. Requeridos: `name`, `slug`, `price`. Precio no negativo
+con máximo dos decimales. Defaults: `currency=USD`, publicación `false`. `201`:
 `ProductDTO`.
 
 ### `GET /api/v1/businesses/{business_id}/catalog/products`
@@ -374,7 +371,6 @@ Permiso de lectura. `200`: `ProductDTO`.
   "category_id": null,
   "name": "Café cubano doble",
   "slug": "cafe-cubano-doble",
-  "product_type": "product",
   "description": "Dos shots",
   "price": "4.00",
   "currency": "USD",
@@ -386,7 +382,7 @@ Permiso de lectura. `200`: `ProductDTO`.
 }
 ```
 
-Permiso de contenido. Requeridos: `name`, `slug`, `product_type`, `price`,
+Permiso de contenido. Requeridos: `name`, `slug`, `price`,
 `currency`. `stock_quantity >= 0`. `200`: `ProductDTO`. El DTO actual no
 devuelve publicación ni inventario.
 
@@ -611,4 +607,21 @@ GET /public/businesses/{slug}
 → renderizar información y hero con plantilla fija
 GET /public/businesses/{slug}/catalog
 → renderizar productos
+GET /public/businesses/{slug}/services
+→ renderizar servicios publicados orientados al contacto
 ```
+
+## Servicios y venta online
+
+Los servicios son recursos independientes de los productos y nunca son líneas
+válidas de un pedido. Su CRUD usa `/businesses/{business_id}/services` y la
+lista pública usa `/public/businesses/{business_slug}/services`.
+
+Un servicio admite `name`, `slug`, `description`, `image_url`, `category_id`,
+`platform_category_id`, `price`, `currency`, `duration_minutes`,
+`is_available` e `is_published`. Precio y moneda son opcionales pero deben
+enviarse juntos; la duración opcional debe ser mayor que cero.
+
+El DTO del negocio incluye `sells_online`. Cuando es `false`, el backend
+rechaza nuevos pedidos públicos. El descubrimiento devuelve las colecciones
+`businesses`, `products` y `services`.

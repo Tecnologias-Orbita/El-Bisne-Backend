@@ -14,7 +14,7 @@ class BusinessModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(160))
     slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text)
-    business_type: Mapped[str] = mapped_column(String(50))
+    sells_online: Mapped[bool] = mapped_column(Boolean, default=False)
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     timezone: Mapped[str] = mapped_column(String(64), default="America/Havana")
     contact_email: Mapped[str | None] = mapped_column(String(320))

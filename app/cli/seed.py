@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -23,6 +23,7 @@ from app.modules.catalog.infrastructure.models.catalog import CategoryModel, Pro
 from app.modules.platform_categories.infrastructure.models.platform_category import (
     PlatformCategoryModel,
 )
+from app.modules.services.infrastructure.models.service import ServiceModel
 from app.modules.sites.infrastructure.models.site import BusinessSiteModel
 from app.shared.infrastructure.security import hash_password
 
@@ -62,12 +63,30 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
             "Café de barrio con desayunos, meriendas y platos preparados al momento. "
             "Un espacio cálido para compartir sabores cubanos y propuestas contemporáneas."
         ),
-        "business_type": "restaurant",
+        "sells_online": False,
         "contact_phone": "+5351111111",
         "platform_category": "restaurantes",
         "hero": IMAGES["burger"],
         "logo": IMAGES["coffee"],
         "payment": ("SEED-TRANSFER-0001", SubscriptionPlan.PREMIUM, "2500.00"),
+        "services": (
+            (
+                "Catering para eventos",
+                "catering-eventos",
+                "Menú y atención para celebraciones.",
+                "3500.00",
+                180,
+                IMAGES["burger"],
+            ),
+            (
+                "Reserva de salón",
+                "reserva-salon",
+                "Un espacio preparado para tu encuentro.",
+                None,
+                120,
+                IMAGES["coffee"],
+            ),
+        ),
         "categories": (
             {
                 "name": "Cafés y bebidas",
@@ -148,12 +167,13 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
             "Repostería artesanal para celebrar lo cotidiano y las fechas importantes. "
             "Preparamos dulces, panes y encargos con ingredientes seleccionados."
         ),
-        "business_type": "tienda",
+        "sells_online": True,
         "contact_phone": "+5352222222",
         "platform_category": "dulces-panaderia",
         "hero": IMAGES["cake"],
         "logo": IMAGES["cupcake"],
         "payment": ("SEED-TRANSFER-0002", SubscriptionPlan.BASIC, "1500.00"),
+        "services": (),
         "categories": (
             {
                 "name": "Pasteles",
@@ -226,6 +246,70 @@ BUSINESSES: tuple[dict[str, Any], ...] = (
             },
         ),
     },
+    {
+        "owner_email": OWNER_EMAIL,
+        "name": "Estudio Horizonte",
+        "slug": "estudio-horizonte",
+        "description": (
+            "Estudio creativo con impresiones, álbumes y servicios de fotografía profesional. "
+            "Compra piezas listas o conversa con el equipo para preparar una sesión a tu medida."
+        ),
+        "sells_online": True,
+        "contact_phone": "+5351111111",
+        "platform_category": "cafeterias",
+        "hero": IMAGES["latte"],
+        "logo": IMAGES["coffee"],
+        "payment": ("SEED-TRANSFER-0003", SubscriptionPlan.BASIC, "1500.00"),
+        "services": (
+            (
+                "Sesión de retratos",
+                "sesion-retratos",
+                "Una experiencia fotográfica personalizada.",
+                "2800.00",
+                90,
+                IMAGES["latte"],
+            ),
+        ),
+        "categories": (
+            {
+                "name": "Impresiones y álbumes",
+                "slug": "impresiones-albumes",
+                "description": "Recuerdos impresos con terminación profesional.",
+                "image": IMAGES["latte"],
+                "platform_category": "cafeterias",
+                "products": (
+                    (
+                        "Álbum fotográfico artesanal",
+                        "album-fotografico",
+                        "Álbum encuadernado con veinte páginas personalizables.",
+                        "3200.00",
+                        IMAGES["latte"],
+                    ),
+                    (
+                        "Pack de impresiones premium",
+                        "impresiones-premium",
+                        "Diez fotografías impresas en papel profesional.",
+                        "950.00",
+                        IMAGES["coffee"],
+                    ),
+                ),
+            },
+        ),
+    },
+    {
+        "owner_email": SECOND_OWNER_EMAIL,
+        "name": "Próximo Bisne",
+        "slug": "proximo-bisne",
+        "description": "Un negocio preparando su presencia digital.",
+        "sells_online": False,
+        "contact_phone": "+5352222222",
+        "platform_category": "dulces-panaderia",
+        "hero": IMAGES["bread"],
+        "logo": IMAGES["cupcake"],
+        "payment": ("SEED-TRANSFER-0004", SubscriptionPlan.BASIC, "1500.00"),
+        "services": (),
+        "categories": (),
+    },
 )
 
 
@@ -297,7 +381,7 @@ async def _upsert_business(
             name=spec["name"],
             slug=spec["slug"],
             description=spec["description"],
-            business_type=spec["business_type"],
+            sells_online=spec["sells_online"],
             currency="CUP",
             timezone="America/Havana",
             contact_email=spec["owner_email"],
@@ -309,7 +393,7 @@ async def _upsert_business(
         await session.flush()
     business.name = spec["name"]
     business.description = spec["description"]
-    business.business_type = spec["business_type"]
+    business.sells_online = spec["sells_online"]
     business.currency = "CUP"
     business.timezone = "America/Havana"
     business.contact_email = spec["owner_email"]
@@ -356,6 +440,27 @@ async def _upsert_business(
     payment.amount_paid = Decimal(amount)
 
     seeded_category_slugs = {item["slug"] for item in spec["categories"]}
+    seeded_product_slugs = {
+        product[1] for category in spec["categories"] for product in category["products"]
+    }
+    existing_products = await session.scalars(
+        select(ProductModel).where(ProductModel.business_id == business.id)
+    )
+    for existing_product in existing_products:
+        if existing_product.slug not in seeded_product_slugs:
+            existing_product.is_available = False
+            existing_product.is_published = False
+            existing_product.archived_at = datetime.now(UTC)
+
+    seeded_service_slugs = {service[1] for service in spec.get("services", ())}
+    existing_services = await session.scalars(
+        select(ServiceModel).where(ServiceModel.business_id == business.id)
+    )
+    for existing_service in existing_services:
+        if existing_service.slug not in seeded_service_slugs:
+            existing_service.is_available = False
+            existing_service.is_published = False
+            existing_service.archived_at = datetime.now(UTC)
     existing_categories = await session.scalars(
         select(CategoryModel).where(CategoryModel.business_id == business.id)
     )
@@ -402,7 +507,6 @@ async def _upsert_business(
             product.platform_category_id = platform_categories[
                 category_spec["platform_category"]
             ].id
-            product.product_type = "product"
             product.name = name
             product.description = description
             product.price = Decimal(price)
@@ -413,6 +517,26 @@ async def _upsert_business(
             product.track_inventory = False
             product.stock_quantity = None
             product.archived_at = None
+
+    for name, slug, description, price, duration, image_url in spec.get("services", ()):
+        service = await session.scalar(
+            select(ServiceModel).where(
+                ServiceModel.business_id == business.id, ServiceModel.slug == slug
+            )
+        )
+        if service is None:
+            service = ServiceModel(business_id=business.id, slug=slug)
+            session.add(service)
+        service.platform_category_id = platform_categories[spec["platform_category"]].id
+        service.name = name
+        service.description = description
+        service.price = Decimal(price) if price else None
+        service.currency = "CUP" if price else None
+        service.duration_minutes = duration
+        service.image_url = image_url
+        service.is_available = True
+        service.is_published = True
+        service.archived_at = None
 
 
 async def seed() -> None:
@@ -464,11 +588,14 @@ async def seed() -> None:
         await session.commit()
 
     await engine.dispose()
-    print("Seed completed: 2 businesses, 6 categories and 12 products.")
+    print("Seed completed: 4 businesses, 7 categories, 14 products and 3 services.")
     print(f"Platform admin: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
     print(f"Demo owner: {OWNER_EMAIL} / {OWNER_PASSWORD}")
     print(f"Dulce Alma owner: {SECOND_OWNER_EMAIL} / {SECOND_OWNER_PASSWORD}")
-    print("Public demos: /bisne/cafe-bisne-demo and /bisne/dulce-alma")
+    print(
+        "Public demos: /bisne/cafe-bisne-demo, /bisne/dulce-alma, "
+        "/bisne/estudio-horizonte and /bisne/proximo-bisne"
+    )
 
 
 if __name__ == "__main__":

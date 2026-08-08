@@ -40,7 +40,6 @@ class ProductModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     platform_category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("platform_categories.id", ondelete="SET NULL"), index=True
     )
-    product_type: Mapped[str] = mapped_column(String(20), default="product")
     name: Mapped[str] = mapped_column(String(160))
     slug: Mapped[str] = mapped_column(String(120))
     description: Mapped[str | None] = mapped_column(Text)

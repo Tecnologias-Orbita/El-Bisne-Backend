@@ -53,6 +53,8 @@ class CreateGuestOrderHandler:
             )
             if business is None or not business.is_published or business.archived_at is not None:
                 raise NotFoundError("Business not found")
+            if not business.sells_online:
+                raise ValidationError("This business does not accept online orders")
             orders = SqlAlchemyOrderRepository(self.uow.session)
             existing = await orders.get_by_idempotency_key(business.id, command.idempotency_key)
             if existing is not None:

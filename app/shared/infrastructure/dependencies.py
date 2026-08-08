@@ -119,6 +119,22 @@ from app.modules.platform_categories.application.queries.platform_categories imp
     ListPlatformCategories,
     ListPlatformCategoriesHandler,
 )
+from app.modules.services.application.commands.services import (
+    ArchiveService,
+    ArchiveServiceHandler,
+    CreateService,
+    CreateServiceHandler,
+    UpdateService,
+    UpdateServiceHandler,
+)
+from app.modules.services.application.queries.services import (
+    GetService,
+    GetServiceHandler,
+    ListPublicServices,
+    ListPublicServicesHandler,
+    ListServices,
+    ListServicesHandler,
+)
 from app.modules.sites.application.queries.sites import (
     DiscoverPlatform,
     DiscoverPlatformHandler,
@@ -153,6 +169,9 @@ async def get_command_bus() -> AsyncIterator[CommandBus]:
     bus.register(DeleteCategory, DeleteCategoryHandler(_uow()))
     bus.register(UpdateProduct, UpdateProductHandler(_uow()))
     bus.register(ArchiveProduct, ArchiveProductHandler(_uow()))
+    bus.register(CreateService, CreateServiceHandler(_uow()))
+    bus.register(UpdateService, UpdateServiceHandler(_uow()))
+    bus.register(ArchiveService, ArchiveServiceHandler(_uow()))
     bus.register(ChangeOrderStatus, ChangeOrderStatusHandler(_uow()))
     bus.register(UpdatePlatformPaymentSettings, UpdatePlatformPaymentSettingsHandler(_uow()))
     bus.register(CreateExchangeRate, CreateExchangeRateHandler(_uow()))
@@ -182,6 +201,9 @@ async def get_query_bus(
     bus.register(ListCategories, ListCategoriesHandler(session))
     bus.register(ListProducts, ListProductsHandler(session))
     bus.register(GetProduct, GetProductHandler(session))
+    bus.register(ListServices, ListServicesHandler(session))
+    bus.register(GetService, GetServiceHandler(session))
+    bus.register(ListPublicServices, ListPublicServicesHandler(session))
     bus.register(ListOrders, ListOrdersHandler(session))
     bus.register(GetOrder, GetOrderHandler(session))
     bus.register(GetPlatformPaymentSettings, GetPlatformPaymentSettingsHandler(session))

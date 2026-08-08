@@ -51,7 +51,7 @@ class BusinessOnboardingRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=160)
     business_name: str = Field(min_length=2, max_length=160)
     slug: str = Field(min_length=3, max_length=100)
-    business_type: str = Field(min_length=2, max_length=50)
+    sells_online: bool = False
     description: str | None = None
     currency: str = Field(default="USD", min_length=3, max_length=3)
     timezone: str = "America/Havana"

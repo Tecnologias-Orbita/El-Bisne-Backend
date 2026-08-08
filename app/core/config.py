@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     jwt_algorithm: str = "HS256"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    supabase_url: str = ""
+    supabase_key: str = ""
+    supabase_storage_bucket: str = ""
 
     @property
     def allowed_cors_origins(self) -> list[str]:

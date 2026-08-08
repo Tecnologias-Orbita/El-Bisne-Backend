@@ -18,6 +18,7 @@ from app.modules.catalog.infrastructure.repositories.sqlalchemy_catalog import (
 from app.modules.platform_categories.infrastructure.models.platform_category import (
     PlatformCategoryModel,
 )
+from app.modules.services.infrastructure.models.service import ServiceModel
 from app.shared.application.unit_of_work import SqlAlchemyUnitOfWork
 from app.shared.domain.exceptions import (
     ConflictError,
@@ -40,7 +41,6 @@ class CreateProduct:
     business_id: uuid.UUID
     name: str
     slug: str
-    product_type: str
     price: Decimal
     currency: str
     category_id: uuid.UUID | None = None
@@ -78,8 +78,6 @@ class CreateProductHandler:
     async def __call__(self, command: CreateProduct) -> ProductDTO:
         if command.price < 0:
             raise ValidationError("Price cannot be negative")
-        if command.product_type not in {"product", "service"}:
-            raise ValidationError("Product type must be product or service")
         async with self.uow:
             await BusinessAuthorizationService(self.uow.session).require(
                 command.actor_user_id, command.business_id, BusinessPermission.MANAGE_CONTENT
@@ -104,7 +102,6 @@ class CreateProductHandler:
                 platform_category_id=command.platform_category_id,
                 name=command.name.strip(),
                 slug=slug,
-                product_type=command.product_type,
                 description=command.description,
                 price=command.price,
                 currency=command.currency.upper(),
@@ -119,7 +116,6 @@ class CreateProductHandler:
                 product.platform_category_id,
                 product.name,
                 product.slug,
-                product.product_type,
                 product.description,
                 product.price,
                 product.currency,
@@ -157,7 +153,6 @@ class UpdateProduct:
     platform_category_id: uuid.UUID | None
     name: str
     slug: str
-    product_type: str
     description: str | None
     price: Decimal
     currency: str
@@ -230,6 +225,11 @@ class DeleteCategoryHandler:
             )
             if products:
                 raise ConflictError("Category cannot be deleted while it contains products")
+            services = await self.uow.session.scalar(
+                select(ServiceModel.id).where(ServiceModel.category_id == category.id).limit(1)
+            )
+            if services:
+                raise ConflictError("Category cannot be deleted while it contains services")
             await self.uow.session.delete(category)
             await self.uow.commit()
 
@@ -241,8 +241,6 @@ class UpdateProductHandler:
     async def __call__(self, command: UpdateProduct) -> ProductDTO:
         if command.price < 0:
             raise ValidationError("Price cannot be negative")
-        if command.product_type not in {"product", "service"}:
-            raise ValidationError("Product type must be product or service")
         async with self.uow:
             await _require_catalog_access(self.uow, command.business_id, command.actor_user_id)
             repo = SqlAlchemyCatalogRepository(self.uow.session)
@@ -272,7 +270,6 @@ class UpdateProductHandler:
             for field in (
                 "category_id",
                 "platform_category_id",
-                "product_type",
                 "description",
                 "price",
                 "image_url",
@@ -292,7 +289,6 @@ class UpdateProductHandler:
                 product.platform_category_id,
                 product.name,
                 product.slug,
-                product.product_type,
                 product.description,
                 product.price,
                 product.currency,

@@ -28,6 +28,7 @@ from app.modules.orders.infrastructure.models.order import (
 from app.modules.platform_categories.infrastructure.models.platform_category import (
     PlatformCategoryModel,
 )
+from app.modules.services.infrastructure.models.service import ServiceModel
 from app.modules.sites.infrastructure.models.site import BusinessSiteModel
 
 __all__ = [
@@ -49,6 +50,7 @@ __all__ = [
     "ProductOfferModel",
     "ProductRelationModel",
     "RefreshTokenModel",
+    "ServiceModel",
     "SubscriptionPaymentModel",
     "UserModel",
 ]

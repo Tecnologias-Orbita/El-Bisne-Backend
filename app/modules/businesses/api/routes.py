@@ -32,7 +32,7 @@ router = APIRouter(prefix="/businesses", tags=["businesses"])
 class CreateBusinessRequest(BaseModel):
     name: str = Field(min_length=2, max_length=160)
     slug: str = Field(min_length=3, max_length=100)
-    business_type: str = Field(min_length=2, max_length=50)
+    sells_online: bool = False
     transaction_number: str = Field(min_length=1, max_length=120)
     plan: SubscriptionPlan
     phone_number: str = Field(min_length=3, max_length=32)
@@ -52,7 +52,7 @@ class CreateBusinessRequest(BaseModel):
 class UpdateBusinessRequest(BaseModel):
     name: str = Field(min_length=2, max_length=160)
     description: str | None = None
-    business_type: str = Field(min_length=2, max_length=50)
+    sells_online: bool = False
     currency: str = Field(min_length=3, max_length=3)
     timezone: str
     contact_email: EmailStr | None = None

@@ -56,7 +56,7 @@ class OnboardBusiness:
     full_name: str
     business_name: str
     slug: str
-    business_type: str
+    sells_online: bool
     transaction_number: str
     plan: SubscriptionPlan
     phone_number: str
@@ -178,7 +178,7 @@ class OnboardBusinessHandler:
             business = BusinessModel(
                 name=command.business_name.strip(),
                 slug=slug,
-                business_type=command.business_type,
+                sells_online=command.sells_online,
                 description=command.description,
                 currency=command.currency.upper(),
                 timezone=command.timezone,
@@ -220,7 +220,7 @@ class OnboardBusinessHandler:
                     business.name,
                     business.slug,
                     business.description,
-                    business.business_type,
+                    business.sells_online,
                     business.currency,
                     business.timezone,
                     business.contact_email,
