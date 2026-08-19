@@ -57,6 +57,7 @@ class DiscoveryProductDTO:
     currency: str
     image_url: str | None
     is_available: bool
+    business_logo_url: str | None
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ class DiscoveryServiceDTO:
     currency: str | None
     duration_minutes: int | None
     image_url: str | None
+    business_logo_url: str | None
 
 
 @dataclass(frozen=True)
@@ -142,18 +144,6 @@ class DiscoverPlatformHandler:
         businesses = list(
             await self.session.scalars(business_statement.order_by(BusinessModel.name))
         )
-        business_ids = [business.id for business in businesses]
-        sites = (
-            list(
-                await self.session.scalars(
-                    select(BusinessSiteModel).where(BusinessSiteModel.business_id.in_(business_ids))
-                )
-            )
-            if business_ids
-            else []
-        )
-        sites_by_business = {site.business_id: site for site in sites}
-
         product_statement = (
             select(ProductModel, BusinessModel)
             .join(BusinessModel, BusinessModel.id == ProductModel.business_id)
@@ -200,6 +190,21 @@ class DiscoverPlatformHandler:
         service_rows = list(
             (await self.session.execute(service_statement.order_by(ServiceModel.name))).all()
         )
+        business_ids = {
+            *(business.id for business in businesses),
+            *(business.id for _, business in product_rows),
+            *(business.id for _, business in service_rows),
+        }
+        sites = (
+            list(
+                await self.session.scalars(
+                    select(BusinessSiteModel).where(BusinessSiteModel.business_id.in_(business_ids))
+                )
+            )
+            if business_ids
+            else []
+        )
+        sites_by_business = {site.business_id: site for site in sites}
 
         return PlatformDiscoveryDTO(
             categories=[
@@ -243,6 +248,7 @@ class DiscoverPlatformHandler:
                     product.currency,
                     product.image_url,
                     product.is_available,
+                    sites_by_business[business.id].logo_url if business.id in sites_by_business else None,
                 )
                 for product, business in product_rows
             ],
@@ -260,6 +266,7 @@ class DiscoverPlatformHandler:
                     service.currency,
                     service.duration_minutes,
                     service.image_url,
+                    sites_by_business[business.id].logo_url if business.id in sites_by_business else None,
                 )
                 for service, business in service_rows
             ],
