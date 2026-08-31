@@ -8,8 +8,13 @@ WS_HELP="
   Funciones diponibles:
   - ${GREEN}comp${NC}: Ejecuta docker-compose
   - ${GREEN}edb${NC}: Ejecuta psql para conectarse a la base de datos
+  - ${GREEN}start${NC}: Ejecuta el banckend
   
 "
+
+function start {
+	uv run fastapi run app/main.py
+}
 
 function edb {
     source .env && psql "${DATABASE_URL/"+asyncpg"/}"
