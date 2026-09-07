@@ -16,7 +16,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     await engine.dispose()
 
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name,
+    lifespan=lifespan,
+    openapi_url=f"{settings.service_prefix}/openapi.json",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_cors_origins,
@@ -25,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 install_exception_handlers(app)
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix=settings.service_prefix + settings.api_prefix)
 
 
 @app.get("/", tags=["system"])

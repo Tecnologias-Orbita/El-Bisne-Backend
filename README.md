@@ -246,6 +246,8 @@ docker compose build api
 |---|---|---|
 | `APP_NAME` | Nombre mostrado por FastAPI | `El Bisne API` |
 | `APP_ENV` | Entorno de ejecución | `development` |
+| `SERVICE_PREFIX` | Prefijo global del servicio | `/backend` |
+| `API_PREFIX` | Prefijo de la ruta del API | `/api/v1` |
 | `POSTGRES_DB` | Base creada por PostgreSQL | `el_bisne` |
 | `POSTGRES_USER` | Usuario de PostgreSQL | `el_bisne` |
 | `POSTGRES_PASSWORD` | Contraseña de PostgreSQL | `change-me` |

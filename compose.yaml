@@ -24,6 +24,8 @@ services:
     environment:
       APP_NAME: ${APP_NAME:-El Bisne API}
       APP_ENV: ${APP_ENV:-development}
+      SERVICE_PREFIX: ${SERVICE_PREFIX}
+      API_PREFIX: ${API_PREFIX}
       SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://192.168.1.3:3000,http://192.168.1.8:3000}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-el_bisne}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-el_bisne}
@@ -41,7 +43,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000${SERVICE_PREFIX}${API_PREFIX}/health')",
         ]
       interval: 10s
       timeout: 5s
