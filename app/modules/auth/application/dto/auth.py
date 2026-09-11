@@ -24,3 +24,14 @@ class BusinessOnboardingDTO:
     user: UserDTO
     business: BusinessDTO
     tokens: TokenPairDTO
+
+
+@dataclass(frozen=True)
+class LoginUserDTO:
+    id: uuid.UUID
+    email: str
+    full_name: str
+    is_platform_admin: bool
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"

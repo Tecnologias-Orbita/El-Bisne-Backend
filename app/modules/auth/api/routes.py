@@ -49,6 +49,16 @@ class TokenResponse(BaseModel):
     token_type: str
 
 
+class LoginResponse(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: str
+    is_platform_admin: bool
+    access_token: str
+    refresh_token: str
+    token_type: str
+
+
 class BusinessOnboardingRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
@@ -87,7 +97,9 @@ async def onboarding_availability(
     transaction_number: str | None = None,
 ) -> OnboardingAvailabilityDTO:
     return await bus.dispatch(
-        CheckOnboardingAvailability(str(email) if email else None, slug, transaction_number)
+        CheckOnboardingAvailability(
+            str(email) if email else None, slug, transaction_number
+        )
     )
 
 
@@ -103,11 +115,11 @@ async def register_business(
     return await bus.dispatch(OnboardBusiness(**body.model_dump()))
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=LoginResponse)
 async def login(
     body: LoginRequest, bus: Annotated[CommandBus, Depends(get_command_bus)]
-) -> TokenResponse:
-    return TokenResponse.model_validate(
+) -> LoginResponse:
+    return LoginResponse.model_validate(
         await bus.dispatch(LoginUser(**body.model_dump())), from_attributes=True
     )
 

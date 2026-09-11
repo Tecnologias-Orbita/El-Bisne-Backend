@@ -5,9 +5,16 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
-from app.modules.auth.application.dto.auth import BusinessOnboardingDTO, TokenPairDTO, UserDTO
+from app.modules.auth.application.dto.auth import (
+    BusinessOnboardingDTO,
+    LoginUserDTO,
+    TokenPairDTO,
+    UserDTO,
+)
 from app.modules.auth.infrastructure.models.user import RefreshTokenModel, UserModel
-from app.modules.auth.infrastructure.repositories.sqlalchemy_users import SqlAlchemyUserRepository
+from app.modules.auth.infrastructure.repositories.sqlalchemy_users import (
+    SqlAlchemyUserRepository,
+)
 from app.modules.billing.domain.plans import SubscriptionPlan
 from app.modules.billing.infrastructure.models.billing import SubscriptionPaymentModel
 from app.modules.businesses.application.dto.business import BusinessDTO, BusinessSiteDTO
@@ -21,7 +28,11 @@ from app.modules.platform_categories.infrastructure.models.platform_category imp
 )
 from app.modules.sites.infrastructure.models.site import BusinessSiteModel
 from app.shared.application.unit_of_work import SqlAlchemyUnitOfWork
-from app.shared.domain.exceptions import ConflictError, UnauthorizedError, ValidationError
+from app.shared.domain.exceptions import (
+    ConflictError,
+    UnauthorizedError,
+    ValidationError,
+)
 from app.shared.infrastructure.security import (
     create_access_token,
     create_refresh_token,
@@ -96,7 +107,7 @@ class LoginUserHandler:
     def __init__(self, uow: SqlAlchemyUnitOfWork) -> None:
         self.uow = uow
 
-    async def __call__(self, command: LoginUser) -> TokenPairDTO:
+    async def __call__(self, command: LoginUser) -> LoginUserDTO:
         async with self.uow:
             users = SqlAlchemyUserRepository(self.uow.session)
             user = await users.get_by_email(command.email)
@@ -108,10 +119,19 @@ class LoginUserHandler:
                 raise UnauthorizedError("Invalid email or password")
             raw, token_hash, expires_at = create_refresh_token()
             await users.add_refresh_token(
-                RefreshTokenModel(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
+                RefreshTokenModel(
+                    user_id=user.id, token_hash=token_hash, expires_at=expires_at
+                )
             )
             await self.uow.commit()
-            return TokenPairDTO(create_access_token(str(user.id)), raw)
+            return LoginUserDTO(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                is_platform_admin=user.is_platform_admin,
+                access_token=create_access_token(str(user.id)),
+                refresh_token=raw,
+            )
 
 
 class RefreshSessionHandler:
@@ -121,7 +141,9 @@ class RefreshSessionHandler:
     async def __call__(self, command: RefreshSession) -> TokenPairDTO:
         async with self.uow:
             users = SqlAlchemyUserRepository(self.uow.session)
-            stored = await users.get_refresh_token(hash_refresh_token(command.refresh_token))
+            stored = await users.get_refresh_token(
+                hash_refresh_token(command.refresh_token)
+            )
             if (
                 stored is None
                 or stored.revoked_at is not None
@@ -145,14 +167,18 @@ class OnboardBusinessHandler:
 
     async def __call__(self, command: OnboardBusiness) -> BusinessOnboardingDTO:
         if command.expiration_date < command.execution_date:
-            raise ValidationError("Expiration date cannot be earlier than execution date")
+            raise ValidationError(
+                "Expiration date cannot be earlier than execution date"
+            )
         async with self.uow:
             if command.platform_category_id is not None:
                 platform_category = await self.uow.session.get(
                     PlatformCategoryModel, command.platform_category_id
                 )
                 if platform_category is None or not platform_category.is_active:
-                    raise ValidationError("Platform category does not exist or is inactive")
+                    raise ValidationError(
+                        "Platform category does not exist or is inactive"
+                    )
             users = SqlAlchemyUserRepository(self.uow.session)
             if await users.get_by_email(command.email):
                 raise ConflictError("An account with this email already exists")
@@ -189,7 +215,9 @@ class OnboardBusinessHandler:
             self.uow.session.add(business)
             await self.uow.session.flush()
             self.uow.session.add(
-                BusinessMemberModel(business_id=business.id, user_id=user.id, role="owner")
+                BusinessMemberModel(
+                    business_id=business.id, user_id=user.id, role="owner"
+                )
             )
             site = BusinessSiteModel(
                 business_id=business.id,
@@ -210,7 +238,9 @@ class OnboardBusinessHandler:
             )
             raw, token_hash, expires_at = create_refresh_token()
             await users.add_refresh_token(
-                RefreshTokenModel(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
+                RefreshTokenModel(
+                    user_id=user.id, token_hash=token_hash, expires_at=expires_at
+                )
             )
             await self.uow.commit()
             return BusinessOnboardingDTO(
