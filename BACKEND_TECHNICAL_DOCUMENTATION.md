@@ -1,6 +1,6 @@
 # Documentación técnica completa de El Bisne Backend
 
-Última revisión: 25 de julio de 2026.
+Última revisión: 11 de septiembre de 2026.
 
 Esta documentación describe el comportamiento implementado actualmente. La
 fuente definitiva del contrato HTTP sigue siendo `/docs` y `/openapi.json`.
@@ -118,6 +118,36 @@ No requieren JWT:
 | `refresh_token` | string | Credencial rotativa para renovar sesión. |
 | `token_type` | string | Actualmente `bearer`. |
 
+### LoginResponse
+
+Usado en `POST /api/v1/auth/login`. Combina los datos básicos del usuario con las
+credenciales de la nueva sessión. No es un esquema reutilizable en otros endpoints.
+
+| Campo | Tipo | Motivo |
+|---|---|---|
+| `id` | UUID | Identificador estable del usuario. |
+| `email` | string | Login y contacto principal. |
+| `full_name` | string | Nombre visible del usuario. |
+| `is_platform_admin` | boolean | Indica acceso global a todos los tenants. |
+| `access_token` | string | JWT corto usado como Bearer. |
+| `refresh_token` | string | Credencial rotativa para renovar sessión. |
+| `token_type` | string | Actualmente `bearer`. |
+
+### LoginUserDTO
+
+DTO interno de aplicación retornado por `LoginUserHandler`. No se expone como
+HTTP response por sí solo; sus campos se copian en `LoginResponse`.
+
+| Campo | Tipo | Motivo |
+|---|---|---|
+| `id` | uuid.UUID | Identificador estable del usuario. |
+| `email` | str | Login y contacto principal. |
+| `full_name` | str | Nombre visible del usuario. |
+| `is_platform_admin` | bool | Indica acceso global a todos los tenants. |
+| `access_token` | str | JWT corto usado como Bearer. |
+| `refresh_token` | str | Credencial rotativa para renovar sessión. |
+| `token_type` | str | Siempre `bearer`. |
+
 ### BusinessDTO
 
 | Campo | Tipo | Motivo |
@@ -209,8 +239,10 @@ Responde `201 UserDTO`. Conflicto de email: `409`.
 
 #### `POST /api/v1/auth/login`
 
-Público. Body: `email`, `password`. Responde `200 TokenResponse`. Credenciales
-incorrectas o usuario inactivo: `401`.
+Público. Body: `email`, `password`. Responde `200 LoginResponse`, que incluye
+además de los tokens los campos `id`, `email`, `full_name` e
+`is_platform_admin` del usuario autenticado. Credenciales incorrectas o usuario
+inactivo: `401`.
 
 #### `POST /api/v1/auth/refresh`
 

@@ -1,6 +1,6 @@
 # Contrato API para el frontend
 
-Última revisión: 25 de julio de 2026.
+Última revisión: 11 de septiembre de 2026.
 
 Esta es la referencia funcional para construir el panel administrativo y la
 vista pública. Describe el contrato implementado, no funcionalidades futuras.
@@ -141,10 +141,17 @@ parciales.
 {"email":"user@example.com","password":"minimum-8-characters"}
 ```
 
-`200`:
+`200`: devuelve los datos básicos del usuario junto con los tokens de la nueva
+sessión. Los campos `id`, `email`, `full_name` e `is_platform_admin`
+permiten al frontend mostrar el usuario sin hacer una solicitud adicional a
+`GET /api/v1/auth/me`.
 
 ```json
 {
+  "id": "uuid",
+  "email": "user@example.com",
+  "full_name": "Nombre Apellidos",
+  "is_platform_admin": false,
   "access_token": "jwt",
   "refresh_token": "opaque-token",
   "token_type": "bearer"
